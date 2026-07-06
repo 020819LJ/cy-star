@@ -119,38 +119,49 @@
     color: var(--accent-color);
 }
 
-/* ---- 歌曲上传区 ---- */
+/* ---- 上传区 + 云端曲库 并排布局 ---- */
+.music-top-row {
+    display: flex;
+    gap: 6px;
+    margin: 4px 14px;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+/* ---- 歌曲上传区 (紧凑版) ---- */
 .music-upload-area {
-    margin: 8px 14px;
-    padding: 11px;
+    margin: 0;
+    flex: 1;
+    padding: 5px 8px;
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-sm);
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
+    min-width: 0;
 }
 .music-upload-area:hover {
     border-color: var(--accent-color);
     background: rgba(var(--accent-color-rgb), 0.04);
 }
 .music-upload-area i {
-    font-size: 1.3rem;
+    font-size: 1rem;
     color: var(--accent-color);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     display: block;
 }
 .music-upload-area p {
-    margin: 2px 0 0;
-    font-size: 0.76rem;
+    margin: 1px 0 0;
+    font-size: 0.7rem;
     color: var(--text-secondary);
     font-family: var(--font-family);
 }
 .music-upload-area small {
     display: block;
-    font-size: 0.66rem;
+    font-size: 0.6rem;
     color: var(--text-secondary);
     opacity: 0.65;
-    margin-top: 2px;
+    margin-top: 1px;
     font-family: var(--font-family);
 }
 .music-upload-input {
@@ -828,11 +839,11 @@
     50% { box-shadow: 0 0 8px 2px rgba(233,69,96,0.1); }
 }
 
-/* ---- URL导入 ---- */
+/* ---- URL导入 (紧凑版) ---- */
 .music-url-import {
     display: flex;
     gap: 5px;
-    padding: 0 14px 6px;
+    padding: 0 14px 4px;
     align-items: center;
 }
 .music-url-input {
@@ -1161,15 +1172,26 @@
         font-size: 0.85rem;
     }
     .music-upload-area {
-        margin: 6px 12px;
-        padding: 10px;
+        margin: 3px 12px;
+        padding: 4px 9px;
+        flex: none;
     }
     .music-upload-area i {
-        font-size: 1.2rem;
+        font-size: 0.95rem;
+    }
+    /* 移动端并排恢复垂直布局 */
+    .music-top-row {
+        flex-direction: column;
+        margin: 3px 12px;
+        gap: 4px;
+    }
+    .music-top-row .music-cloud-section {
+        margin: 0;
+        flex: none;
     }
     .music-toolbar {
-        padding: 0 12px 5px;
-        gap: 4px;
+        padding: 0 12px 3px;
+        gap: 3px;
     }
     .music-tool-btn {
         padding: 3px 7px;

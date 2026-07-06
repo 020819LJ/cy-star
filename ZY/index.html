@@ -35,6 +35,9 @@
     <link rel="stylesheet" href="css/moments.css">
     <link rel="stylesheet" href="css/spark.css">
     <link rel="stylesheet" href="css/music.css">
+    <!-- ★★★ [新增] cy-music云端曲库样式 ★★★ -->
+    <link rel="stylesheet" href="css/music-cloud.css">
+
 
     <style id="css-live-preview-style">
         /* 输入框样式 */
@@ -4499,12 +4502,28 @@
             <div class="music-mode-status" id="music-mode-status">
                 <span id="music-mode-text">🎧 独自听歌中</span>
             </div>
-            <div class="music-upload-area" id="music-upload-area">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <p>点击或拖拽导入歌曲</p>
-                <small>支持 .mp3/.lrc 多选 + .zip 压缩包（≤40MB）+ URL链接</small>
-                <input type="file" class="music-upload-input" id="music-file-input" accept=".mp3,.lrc" multiple>
-                <input type="file" class="music-upload-input" id="music-zip-input" accept=".zip">
+            <!-- ★★★ 上传区 + 云端曲库 并排布局 ★★★ -->
+            <div class="music-top-row">
+                <div class="music-upload-area" id="music-upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>点击或拖拽导入歌曲</p>
+                    <small>支持 .mp3/.lrc/.zip</small>
+                    <input type="file" class="music-upload-input" id="music-file-input" accept=".mp3,.lrc" multiple>
+                    <input type="file" class="music-upload-input" id="music-zip-input" accept=".zip">
+                </div>
+                <!-- ★★★ cy-music云端曲库模块 ★★★ -->
+                <div class="music-cloud-section" id="music-cloud-section">
+                    <div class="music-cloud-header">
+                        <span class="music-cloud-title"><i class="fas fa-cloud"></i> cy-music 云端曲库</span>
+                        <span class="music-cloud-status loading" id="music-cloud-status">连接中...</span>
+                    </div>
+                    <div class="music-cloud-actions">
+                        <button class="music-tool-btn" id="music-btn-cloud-load-all" title="一键加载云端全部歌曲到歌单">
+                            <i class="fas fa-cloud-download-alt"></i> 一键加载
+                        </button>
+                    </div>
+                    <div class="music-cloud-info" id="music-cloud-info">正在获取云端曲库数据...</div>
+                </div>
             </div>
             <!-- ★ URL导入 -->
             <div class="music-url-import" id="music-url-import">

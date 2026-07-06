@@ -1,0 +1,171 @@
+/**
+ * music-cloud.css - ★★★ [新增] cy-music云端曲库样式 ★★★
+ * 与现有音乐播放器样式统一，使用相同的CSS变量
+ * 不挤压原有控件，独立模块 UI
+ */
+
+/* ---- 云端曲库模块容器 (并排布局中靠右) ---- */
+.music-cloud-section {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: rgba(var(--accent-color-rgb, 147, 112, 219), 0.03);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* ---- 云端曲库头部 ---- */
+.music-cloud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: rgba(var(--accent-color-rgb, 147, 112, 219), 0.05);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.music-cloud-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.music-cloud-title i {
+    color: var(--accent-color);
+    font-size: 0.75rem;
+}
+
+/* ---- 云端状态指示器 ---- */
+.music-cloud-status {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-family: var(--font-family);
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all 0.3s;
+}
+
+.music-cloud-status.loading {
+    color: #e0a040;
+    background: rgba(224, 160, 64, 0.08);
+    animation: cloudPulse 1.5s ease-in-out infinite;
+}
+
+.music-cloud-status.ready {
+    color: #34c759;
+    background: rgba(52, 199, 89, 0.08);
+}
+
+.music-cloud-status.error {
+    color: #e06060;
+    background: rgba(224, 96, 96, 0.08);
+}
+
+@keyframes cloudPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* ---- 云端操作按钮区 ---- */
+.music-cloud-actions {
+    display: flex;
+    gap: 4px;
+    padding: 3px 8px;
+    flex-wrap: wrap;
+}
+
+.music-cloud-actions .music-tool-btn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+    font-weight: 500;
+}
+
+.music-cloud-actions .music-tool-btn:hover {
+    border-color: var(--accent-color);
+    background: rgba(var(--accent-color-rgb), 0.1);
+    color: var(--accent-color);
+}
+
+.music-cloud-actions .music-tool-btn i {
+    color: var(--accent-color);
+}
+
+.music-cloud-actions .music-tool-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ---- 云端信息提示 ---- */
+.music-cloud-info {
+    padding: 3px 8px 4px;
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    font-family: var(--font-family);
+    text-align: center;
+    opacity: 0.75;
+    line-height: 1.4;
+    min-height: 16px;
+}
+
+.music-cloud-info:empty {
+    display: none;
+}
+
+/* ---- 云端歌曲在歌单中的标记（轻量角标） ---- */
+.music-song-item .music-song-cloud-badge {
+    font-size: 0.55rem;
+    color: var(--accent-color);
+    opacity: 0.7;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* ========== 移动端适配 ========== */
+@media screen and (max-width: 520px) {
+    .music-cloud-section {
+        margin: 0 10px 3px;
+        flex: none;
+        display: block;
+    }
+
+    .music-cloud-header {
+        padding: 3px 6px;
+    }
+
+    .music-cloud-title {
+        font-size: 0.66rem;
+    }
+
+    .music-cloud-status {
+        font-size: 0.56rem;
+        padding: 1px 5px;
+    }
+
+    .music-cloud-actions {
+        padding: 3px 6px;
+        gap: 3px;
+    }
+
+    .music-cloud-actions .music-tool-btn {
+        padding: 2px 6px;
+        font-size: 0.64rem;
+    }
+
+    .music-cloud-info {
+        padding: 2px 6px 3px;
+        font-size: 0.58rem;
+    }
+}

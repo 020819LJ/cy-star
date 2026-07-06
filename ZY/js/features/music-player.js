@@ -71,8 +71,8 @@
     var soloListener = 'me';           // ★ 独自听歌时谁在听: 'me' | 'partner'
     var partnerInviteTimeout = null;   // 邀请超时计时器
     var partnerActionTimer = null;     // 梦角行为计时器
-    var PARTNER_ACTION_MIN = 15000;    // 梦角行为最小间隔 15秒
-    var PARTNER_ACTION_MAX = 60000;    // 梦角行为最大间隔 60秒
+    var PARTNER_ACTION_MIN = 60000;     // 梦角行为最小间隔 1分钟
+    var PARTNER_ACTION_MAX = 600000;    // 梦角行为最大间隔 10分钟
     var INVITE_TIMEOUT = 30000;        // 邀请超时 30秒
 
     // ★ 排行榜数据
@@ -893,7 +893,7 @@
         }
         if (togetherMode) {
             // 已经在一起听模式，退出
-            exitTogetherMode();
+            exitTogetherMode('me');
             return;
         }
         if (!$inviteOverlay) cacheDOM();
@@ -969,15 +969,21 @@
         schedulePartnerAction();
     }
 
-    function exitTogetherMode() {
+    /** ★ [优化] 退出一起听模式，who: 'me' | 'partner'，区分弹窗提示 */
+    function exitTogetherMode(who) {
+        who = who || 'me';
         togetherMode = false;
-        soloListener = 'me';
+        soloListener = who === 'partner' ? 'partner' : 'me';
         updateModeStatus();
         if ($inviteBtn) $inviteBtn.innerHTML = '<i class="fas fa-user-plus"></i> 邀请梦角一起听';
         if ($inviteBtn) $inviteBtn.style.borderColor = '';
         if (partnerActionTimer) clearTimeout(partnerActionTimer);
         partnerActionTimer = null;
-        notify('已退出一起听模式', 'info', 2000);
+        if (who === 'partner') {
+            notify('💔 梦角退出了一起听歌', 'warning', 4000);
+        } else {
+            notify('我退出了一起听歌', 'info', 3000);
+        }
     }
 
     function schedulePartnerAction() {
@@ -990,45 +996,63 @@
         }, delay);
     }
 
+    /** ★ [优化] 梦角随机行为：自动执行切歌/暂停/退出，弹窗提示无需确认 */
     function triggerPartnerAction() {
-        // 60%概率切歌，40%概率暂停
-        var isSwitch = Math.random() < 0.6;
+        // ★ 20%切歌，15%暂停，10%退出，55%无动作（仅重新计时）
+        var roll = Math.random();
 
-        if (!isSwitch && isPlaying) {
-            // 暂停
-            showPartnerActionPopup('⏸️', '梦角暂停了音乐', '梦角说"等一下，我去拿杯水"', function() {
-                togglePlay();
-                if (!isPlaying && togetherMode) {
-                    // 梦角暂停后，过3-8秒自动恢复
-                    setTimeout(function() {
-                        if (togetherMode && !isPlaying) {
-                            showPartnerActionPopup('▶️', '梦角恢复了播放', '梦角说"好了，继续听吧~"', function() {
-                                togglePlay();
-                                schedulePartnerAction();
-                            });
-                        }
-                    }, 3000 + Math.random() * 5000);
-                } else {
-                    schedulePartnerAction();
-                }
-            });
-        } else {
-            // 切歌
-            var newIndex;
+        // ─── 10% 梦角退出一起听 ───
+        if (roll < 0.10) {
+            var exitMsgs = [
+                '💔 梦角说"有点困了，明天再听吧~"',
+                '💔 梦角说"要忙一下，先退出来啦"',
+                '💔 梦角说"手机没电了，先不听了"',
+                '💔 梦角说"去吃饭了，回头再一起听~"'
+            ];
+            notify(exitMsgs[Math.floor(Math.random() * exitMsgs.length)], 'warning', 4000);
+            setTimeout(function() {
+                if (togetherMode) exitTogetherMode('partner');
+            }, 2000);
+            return;
+        }
+
+        // ─── 15% 暂停 ───
+        if (roll < 0.25 && isPlaying) {
+            notify('⏸️ 梦角暂停了音乐，说"等一下，我去拿杯水"', 'info', 4000);
+            togglePlay();
+            if (!isPlaying && togetherMode) {
+                // 梦角暂停后，过3-30秒自动恢复
+                setTimeout(function() {
+                    if (togetherMode && !isPlaying) {
+                        notify('▶️ 梦角恢复了播放，说"好了，继续听吧~"', 'success', 4000);
+                        togglePlay();
+                        schedulePartnerAction();
+                    }
+                }, 3000 + Math.random() * 27000);
+            } else {
+                schedulePartnerAction();
+            }
+        }
+        // ─── 20% 切歌 ───
+        else if (roll < 0.45) {
             if (playlist.length <= 1) {
                 schedulePartnerAction();
                 return;
             }
+            var newIndex;
             do {
                 newIndex = Math.floor(Math.random() * playlist.length);
             } while (newIndex === currentIndex);
 
             var song = playlist[newIndex];
-            showPartnerActionPopup('🎵', '梦角切了一首歌', '切到「' + (song.title || '未知歌曲') + '」', function() {
-                recordPartnerPlay(song);
-                playSong(newIndex);
-                schedulePartnerAction();
-            });
+            notify('🎵 梦角切到了「' + (song.title || '未知歌曲') + '」', 'info', 4000);
+            recordPartnerPlay(song);
+            playSong(newIndex);
+            schedulePartnerAction();
+        }
+        // ─── 55% 无动作，仅重新计时 ───
+        else {
+            schedulePartnerAction();
         }
     }
 
@@ -1168,7 +1192,7 @@
         if ($curTime) $curTime.textContent = '0:00';
         if ($durTime) $durTime.textContent = '0:00';
         // ★ 停止时退出一起听
-        if (togetherMode) exitTogetherMode();
+        if (togetherMode) exitTogetherMode('me');
     }
 
     // ======================== 批量选择模式 ========================
@@ -2300,6 +2324,272 @@
     };
 
     global.MusicPlayerApp = MusicPlayer;
+
+    // ======================== ★★★ [新增] cy-music云端曲库 ★★★ ========================
+    // 固定远程曲库接口：https://020819lj.github.io/cy-music/index.json
+    // 接口返回每条歌曲字段：name、mp3（完整公网mp3链接）、lrc（完整公网lrc链接）
+    // 所有音频、歌词、JSON接口全部使用给定线上地址
+    var CLOUD_INDEX_URL = 'https://020819lj.github.io/cy-music/index.json';
+    var cloudCache = null;         // 缓存的云端歌曲列表
+    var cloudLoaded = false;       // 是否已成功加载云端索引
+    var cloudLoading = false;      // 是否正在请求中
+
+    var $cloudSection, $cloudStatus, $cloudLoadBtn, $cloudInfo;
+
+    function cacheCloudDOM() {
+        $cloudSection  = document.getElementById('music-cloud-section');
+        $cloudStatus   = document.getElementById('music-cloud-status');
+        $cloudLoadBtn  = document.getElementById('music-btn-cloud-load-all');
+        $cloudInfo     = document.getElementById('music-cloud-info');
+    }
+
+    /** 设置云端曲库状态文字和样式 */
+    function setCloudStatus(text, type) {
+        if (!$cloudStatus) return;
+        $cloudStatus.textContent = text;
+        $cloudStatus.className = 'music-cloud-status';
+        if (type) $cloudStatus.classList.add(type);
+    }
+
+    /**
+     * 页面初始化时静默预请求线上 index.json，缓存全部歌曲数据
+     * 网络请求失败时显示错误提示，不阻塞页面其他功能
+     */
+    function prefetchCloudIndex() {
+        if (cloudLoaded || cloudLoading) return;
+        cloudLoading = true;
+        setCloudStatus('连接中...', 'loading');
+
+        fetch(CLOUD_INDEX_URL)
+            .then(function(res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function(data) {
+                if (Array.isArray(data) && data.length > 0) {
+                    cloudCache = data;
+                    cloudLoaded = true;
+                    setCloudStatus('就绪 (' + data.length + '首)', 'ready');
+                    if ($cloudInfo) {
+                        $cloudInfo.textContent = '已缓存 ' + data.length + ' 首云端歌曲，点击下方按钮一键加载到歌单';
+                    }
+                } else {
+                    throw new Error('云端歌单数据为空');
+                }
+            })
+            .catch(function(err) {
+                console.warn('[CloudMusic] 云端曲库加载失败:', err.message || err);
+                setCloudStatus('暂不可用', 'error');
+                if ($cloudInfo) {
+                    $cloudInfo.textContent = '无法连接到云端曲库，请检查网络后刷新页面重试';
+                }
+            })
+            .finally(function() {
+                cloudLoading = false;
+            });
+    }
+
+    /**
+     * 根据 mp3 链接判断歌单中是否已存在（去重）
+     * 比较 isURL 歌曲的 audioData 和 isCloud 歌曲的 cloudMp3 字段
+     */
+    function isCloudSongDuplicate(mp3Url) {
+        for (var i = 0; i < playlist.length; i++) {
+            var s = playlist[i];
+            if (s.isURL && s.audioData === mp3Url) return true;
+            if (s.isCloud && s.cloudMp3 === mp3Url) return true;
+        }
+        return false;
+    }
+
+    /** 从远程URL加载LRC歌词文本 */
+    function fetchCloudLRC(url) {
+        return fetch(url)
+            .then(function(res) {
+                if (!res.ok) throw new Error('LRC HTTP ' + res.status);
+                return res.text();
+            })
+            .catch(function(err) {
+                console.warn('[CloudMusic] LRC歌词加载失败:', url, err.message || err);
+                return '';
+            });
+    }
+
+    /**
+     * ★ 一键加载云端全部歌曲
+     * - 根据 mp3 链接自动去重，不重复生成条目
+     * - 生成的 DOM 结构与原有 .music-song-item 完全一致
+     * - 点击歌曲自动赋值全局 Audio 实例，同步更新所有UI
+     * - 根据 lrc 远程地址加载歌词文本，调用现有 parseLRC 解析
+     * - 适配手机移动端：仅添加歌曲不自动播放
+     */
+    function loadAllCloudSongs() {
+        // 状态检查：加载中
+        if (cloudLoading) {
+            notify('云端曲库正在连接中，请稍候再试...', 'warning', 2500);
+            return;
+        }
+        // 状态检查：未就绪
+        if (!cloudLoaded || !cloudCache || cloudCache.length === 0) {
+            notify('云端曲库数据未就绪，请刷新页面后重试', 'error', 3000);
+            return;
+        }
+
+        var newCount = 0;
+        var skipCount = 0;
+        var lrcPromises = [];
+
+        for (var i = 0; i < cloudCache.length; i++) {
+            var item = cloudCache[i];
+            var mp3Url = item.mp3;
+            var lrcUrl = item.lrc;
+            var name = item.name || '';
+
+            // 跳过无效条目
+            if (!mp3Url) continue;
+
+            // 去重检查
+            if (isCloudSongDuplicate(mp3Url)) {
+                skipCount++;
+                continue;
+            }
+
+            // ★★★ [修复] 解析歌名：兼容 "歌名 - 歌手"(有空格) 和 "歌名-歌手"(无空格) 两种格式 ★★★
+            var artistGuess = '';
+            var titleGuess = name;
+            // 优先尝试 " - " 格式 (含空格，更精确)
+            var dashIdx = name.lastIndexOf(' - ');
+            var dashLen = 3;
+            // 回退到 "-" 格式 (不含空格，API实际返回格式)
+            if (dashIdx <= 0) {
+                dashIdx = name.lastIndexOf('-');
+                dashLen = 1;
+            }
+            if (dashIdx > 0 && dashIdx < name.length - dashLen) {
+                titleGuess = name.substring(0, dashIdx).trim();
+                artistGuess = name.substring(dashIdx + dashLen).trim();
+            }
+
+            // 创建云端歌曲对象，与现有歌曲结构完全兼容
+            var song = {
+                id: 'cloud_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 8),
+                title: titleGuess || name || '云端歌曲',
+                artist: artistGuess,
+                audioData: mp3Url,            // 远程mp3链接，复用isURL逻辑赋值Audio.src
+                lrcData: '',                  // 稍后异步加载
+                lrcParsed: [],
+                duration: 0,
+                addedAt: Date.now(),
+                isURL: true,                  // ★ 标记为URL类型，复用playSong中audio.src赋值逻辑
+                isCloud: true,                // ★ 标记为云端歌曲
+                cloudMp3: mp3Url,             // ★ 远端mp3链接（用于去重比对）
+                cloudLrc: lrcUrl || ''        // ★ 远端LRC链接
+            };
+
+            playlist.push(song);
+            newCount++;
+
+            // ★ 异步预加载LRC歌词（不阻塞批量导入流程）
+            if (lrcUrl) {
+                (function(s, lrcU) {
+                    lrcPromises.push(
+                        fetchCloudLRC(lrcU).then(function(lrcText) {
+                            if (lrcText) {
+                                s.lrcData = lrcText;
+                                var parsed = parseLRC(lrcText);
+                                s.lrcParsed = parsed.lyrics;
+                                // 从LRC元数据补充/更新歌名、歌手
+                                if (parsed.title && s.title === (titleGuess || name || '云端歌曲')) {
+                                    s.title = parsed.title;
+                                }
+                                if (parsed.artist && !s.artist) {
+                                    s.artist = parsed.artist;
+                                }
+                            }
+                        })
+                    );
+                })(song, lrcUrl);
+            }
+        }
+
+        // 持久化并刷新UI
+        savePlaylist();
+        renderPlaylist();
+        updateStorageBar();
+
+        // 结果通知（适配移动端，仅添加歌曲不自动播放）
+        if (newCount > 0) {
+            var msg = '已从云端加载 ' + newCount + ' 首歌曲' + (skipCount > 0 ? '，跳过 ' + skipCount + ' 首重复' : '');
+            notify(msg, 'success', 3000);
+            if ($cloudInfo) {
+                $cloudInfo.textContent = '本次新增 ' + newCount + ' 首'
+                    + (skipCount > 0 ? '，跳过 ' + skipCount + ' 首已存在' : '')
+                    + '  |  歌单共 ' + playlist.length + ' 首';
+            }
+        } else if (skipCount > 0) {
+            notify('云端 ' + cloudCache.length + ' 首歌曲已全部在歌单中，无需重复加载', 'info', 3000);
+            if ($cloudInfo) {
+                $cloudInfo.textContent = '云端 ' + cloudCache.length + ' 首歌曲已全部在歌单中  |  歌单共 ' + playlist.length + ' 首';
+            }
+        } else {
+            notify('云端曲库未返回有效歌曲', 'warning', 2500);
+            if ($cloudInfo) {
+                $cloudInfo.textContent = '云端曲库数据异常，请稍后重试';
+            }
+        }
+
+        // LRC全部加载完成后，存储更新（使歌词即时可用）
+        if (lrcPromises.length > 0) {
+            Promise.all(lrcPromises).then(function() {
+                savePlaylist();
+                // 如果正在播放中，刷新歌词显示
+                if (currentIndex >= 0 && isPlaying) {
+                    updateLyricsUI();
+                }
+            }).catch(function() {
+                // LRC部分加载失败，静默处理，不影响播放
+            });
+        }
+    }
+
+    /** 绑定云端曲库UI事件 */
+    function bindCloudEvents() {
+        if ($cloudLoadBtn) {
+            $cloudLoadBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // 防止重复点击触发多次导入
+                if ($cloudLoadBtn.disabled) return;
+                $cloudLoadBtn.disabled = true;
+                try {
+                    loadAllCloudSongs();
+                } finally {
+                    // 500ms 后恢复按钮可点击
+                    setTimeout(function() {
+                        if ($cloudLoadBtn) $cloudLoadBtn.disabled = false;
+                    }, 500);
+                }
+            });
+        }
+    }
+
+    // ★★★ [修复] 云端曲库挂载到 init 流程（不修改原有 init 代码，使用函数包装） ★★★
+    // 注意：MusicPlayer.init 已在第2274行捕获了当时的 init 引用，
+    // 重赋局部变量 init 不能自动更新对象属性，需要显式回写 MusicPlayer.init
+    var _origCloudInit = init;
+    init = function() {
+        // 先执行原有初始化逻辑
+        _origCloudInit();
+        // 再初始化云端曲库模块
+        try {
+            cacheCloudDOM();
+            bindCloudEvents();
+            prefetchCloudIndex();
+        } catch(e) {
+            console.warn('[CloudMusic] 初始化异常:', e);
+        }
+    };
+    // ★ 关键：将包装后的 init 回写到 MusicPlayer 对象，确保外部调用生效
+    MusicPlayer.init = init;
 
     // 由 listeners.js 中的 setupEventListeners() 统一调用 init()
 })(typeof window !== 'undefined' ? window : this);
