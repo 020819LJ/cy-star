@@ -371,6 +371,37 @@ const INTERACTION_OPTIONS = {
                 options.push({ id: 'bath', icon: '🧴', name: '洗个澡（未解锁）', desc: '需要购买沐浴露', disabled: true });
             }
 
+            // ★ 用香皂洗洗 - 需要宠物香皂
+            const soapItem = supplies.find(s => s.id === 's3');
+            if (soapItem && soapItem.count > 0) {
+                options.push({ id: 'soap', icon: '🧼', name: `用香皂洗洗 (剩余${soapItem.count}次)`, desc: '心情+12 好感+5', mood: 12, affection: 5, exp: 10 });
+            } else if (soapItem) {
+                options.push({ id: 'soap', icon: '🧼', name: '用香皂洗洗（未解锁）', desc: '香皂用完了，去商场补货吧', disabled: true });
+            } else {
+                options.push({ id: 'soap', icon: '🧼', name: '用香皂洗洗（未解锁）', desc: '需要购买宠物香皂', disabled: true });
+            }
+
+            // ★ 修剪指甲 - 需要指甲剪
+            const clipperItem = supplies.find(s => s.id === 's4');
+            if (clipperItem && clipperItem.count > 0) {
+                options.push({ id: 'nail', icon: '✂️', name: `修剪指甲 (剩余${clipperItem.count}次)`, desc: '心情+8 好感+3', mood: 8, affection: 3, exp: 7 });
+            } else if (clipperItem) {
+                options.push({ id: 'nail', icon: '✂️', name: '修剪指甲（未解锁）', desc: '指甲剪用完了，去商场补货吧', disabled: true });
+            } else {
+                options.push({ id: 'nail', icon: '✂️', name: '修剪指甲（未解锁）', desc: '需要购买指甲剪', disabled: true });
+            }
+
+            // ★ 喂药 - 需要宠物药（生病时可用）
+            const medItem = supplies.find(s => s.id === 's5');
+            if (medItem && medItem.count > 0) {
+                const sickHint = pet.isSick ? ' (宠物生病中，喂药可治疗！)' : '';
+                options.push({ id: 'med', icon: '💊', name: `喂药 (剩余${medItem.count}份)${sickHint}`, desc: pet.isSick ? '治疗疾病 心情+10' : '预防保健 心情+5', mood: pet.isSick ? 10 : 5, exp: 5 });
+            } else if (medItem) {
+                options.push({ id: 'med', icon: '💊', name: '喂药（未解锁）', desc: '药用完了，去商场补货吧', disabled: true });
+            } else {
+                options.push({ id: 'med', icon: '💊', name: '喂药（未解锁）', desc: '需要购买宠物药', disabled: true });
+            }
+
             return options;
         }
     }
@@ -3473,14 +3504,21 @@ function showHouse() {
     const desc = `你正待在${pet.name}的小屋中。${HOUSE_FURNITURE.feeder.name}是${HOUSE_FURNITURE.feeder.state}的。${HOUSE_FURNITURE.toy.name}${HOUSE_FURNITURE.toy.state}。`;
     document.getElementById('house-desc').textContent = desc;
 
-    // 生成家具列表
-    const furnitureList = Object.values(HOUSE_FURNITURE);
+    // 生成家具列表（基础家具 + 已购买的商场家具）
+    const baseFurniture = Object.values(HOUSE_FURNITURE);
+    const boughtFurniture = (gameState.houseFurniture || []).map((f, idx) => ({
+        ...f,
+        id: f.id || ('bought_' + idx),
+        desc: f.desc || '',
+        state: '已放置'
+    }));
+    const furnitureList = [...baseFurniture, ...boughtFurniture];
     document.getElementById('house-furniture').innerHTML = furnitureList.map(item => `
         <div class="furniture-item" onclick="interactFurniture('${item.id}')">
             <div class="furniture-item-icon">${item.icon}</div>
             <div class="furniture-item-info">
-                <div class="furniture-item-name">${item.name}</div>
-                <div class="furniture-item-desc">${item.desc} · ${item.state}</div>
+                <div class="furniture-item-name">${item.name}${boughtFurniture.includes(item) ? ' <span style="font-size:0.7rem;color:var(--accent);">·已购买</span>' : ''}</div>
+                <div class="furniture-item-desc">${item.desc} · ${item.state || ''}</div>
             </div>
         </div>
     `).join('');
@@ -3576,17 +3614,40 @@ window.interactFurniture = function(id) {
     const pet = getCurrentPet();
     if (!pet) return;
 
+    // ★ 点击家具后自动关闭小屋弹窗
+    closeModal('house-modal');
+
     const furniture = HOUSE_FURNITURE[id];
+    const boughtItem = furniture ? null : gameState.houseFurniture.find(f => f.id === id);
+    const sourceItem = furniture || boughtItem;
+
+    if (!sourceItem) {
+        showToast('🪑 这个小家具暂时不能互动~');
+        return;
+    }
+
     const interactions = {
-        feeder: `${pet.name}开心地吃着${furniture.name}里的食物~饱食度+10`,
-        toy: `你和${pet.name}一起玩${furniture.name}！心情+10`,
-        bed: `${pet.name}在${furniture.name}里打了个滚，看起来很满足~`,
-        window: `${pet.name}趴在${furniture.name}边晒太阳，好舒服~`,
-        bowl: `${pet.name}喝了${furniture.name}里的水，精力+5`,
-        cushion: `${pet.name}把${furniture.name}当成了玩具，咬来咬去~`
+        feeder: `${pet.name}开心地吃着${sourceItem.name}里的食物~饱食度+10`,
+        toy: `你和${pet.name}一起玩${sourceItem.name}！心情+10`,
+        bed: `${pet.name}在${sourceItem.name}里打了个滚，看起来很满足~`,
+        window: `${pet.name}趴在${sourceItem.name}边晒太阳，好舒服~`,
+        bowl: `${pet.name}喝了${sourceItem.name}里的水，精力+5`,
+        cushion: `${pet.name}把${sourceItem.name}当成了玩具，咬来咬去~`
     };
 
-    showToast(interactions[id] || `${pet.name}对${furniture.name}很感兴趣~`);
+    // 基础家具互动文案
+    if (interactions[id]) {
+        showToast(interactions[id]);
+    } else {
+        // 购买的家具随机互动文案
+        const boughtMsgs = [
+            `🐾 ${pet.name}正在${sourceItem.name}旁边玩耍，看起来很喜欢~心情+8`,
+            `🏠 ${pet.name}在新买的${sourceItem.name}上蹭了蹭~心情+6`,
+            `✨ ${pet.name}好奇地打量着${sourceItem.name}~好感+3`,
+            `💕 ${pet.name}在${sourceItem.name}附近打了个盹~心情+5`
+        ];
+        showToast(boughtMsgs[Math.floor(Math.random() * boughtMsgs.length)]);
+    }
 
     // 实际效果
     if (id === 'feeder') {
@@ -3595,6 +3656,10 @@ window.interactFurniture = function(id) {
         pet.stats.mood = Math.min(100, pet.stats.mood + 10);
     } else if (id === 'bowl') {
         pet.stats.energy = Math.min(100, pet.stats.energy + 5);
+    } else if (boughtItem) {
+        // 购买的家具：随机心情+好感增益
+        pet.stats.mood = Math.min(100, pet.stats.mood + 5 + Math.floor(Math.random() * 6));   // 心情+5~10
+        pet.stats.affection = Math.min(100, pet.stats.affection + 1 + Math.floor(Math.random() * 4)); // 好感+1~4
     }
 
     Storage.save();
@@ -4058,6 +4123,9 @@ window.confirmBuy = function() {
             gameState.locker.supplies.push({ ...item, count: quantity, obtainedAt: new Date().toISOString() });
         }
         showToast(`🧸 购买了${quantity}个${item.name}！已放入置物柜`);
+
+        // ★ 购买宠物用具后触发随机增益弹窗
+        showSupplyBoostPopup(item, quantity);
     }
 
     // 更新萌宠币显示
@@ -4068,6 +4136,50 @@ window.confirmBuy = function() {
     saveGame();Storage.save();
     updatePetUI();
 };
+
+// ★ 购买宠物用具后触发随机增益弹窗
+function showSupplyBoostPopup(item, quantity) {
+    const pet = getCurrentPet();
+    if (!pet) return;
+
+    // 随机增益：心情+3~15，好感+1~5
+    const moodBoost = 3 + Math.floor(Math.random() * 13);
+    const affectionBoost = 1 + Math.floor(Math.random() * 5);
+
+    // 应用增益
+    pet.stats.mood = Math.min(100, pet.stats.mood + moodBoost);
+    pet.stats.affection = Math.min(100, pet.stats.affection + affectionBoost);
+
+    // 显示弹窗
+    const header = document.getElementById('modal-header');
+    const modalIcon = document.getElementById('modal-icon');
+    const modalTitle = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    const interactionModal = document.getElementById('interaction-modal');
+
+    header.className = 'modal-header mint';
+    modalIcon.textContent = '🎁';
+    modalTitle.textContent = '新用具已解锁！';
+    body.innerHTML = `
+        <div style="text-align:center;padding:20px;">
+            <div style="font-size:3rem;margin-bottom:10px;">${item.icon}</div>
+            <div style="font-size:1.1rem;font-weight:700;margin-bottom:5px;">${item.name} x${quantity}</div>
+            <div style="color:var(--text-light);margin-bottom:8px;">${item.desc}</div>
+            <div style="margin-top:15px;padding:12px;background:var(--card);border-radius:12px;">
+                <div style="font-size:0.95rem;color:var(--accent);margin-bottom:8px;">✨ 使用新用具后 ${pet.name} 很开心！</div>
+                <div style="display:flex;justify-content:center;gap:20px;font-weight:700;">
+                    <span>😊 心情 +${moodBoost}</span>
+                    <span>💕 好感 +${affectionBoost}</span>
+                </div>
+            </div>
+            <button class="dreamy-btn primary" onclick="closeModal('interaction-modal')" style="margin-top:15px;">太棒了 ✨</button>
+        </div>
+    `;
+    interactionModal.classList.add('show');
+
+    Storage.save();
+    updatePetUI();
+}
 
 // ===== 衣柜 =====
 function showWardrobe() {
@@ -5047,6 +5159,45 @@ function doInteraction(action, option) {
         bathItem.count--;
     }
 
+    // ★ 用香皂时消耗香皂
+    if (action === 'clean' && option.id === 'soap') {
+        const soapItem = gameState.locker.supplies.find(s => s.id === 's3');
+        if (!soapItem || soapItem.count <= 0) {
+            showToast('😢 香皂用完了，去商场补货吧！');
+            closeModal('interaction-modal');
+            return;
+        }
+        soapItem.count--;
+    }
+
+    // ★ 修剪指甲时消耗指甲剪
+    if (action === 'clean' && option.id === 'nail') {
+        const clipperItem = gameState.locker.supplies.find(s => s.id === 's4');
+        if (!clipperItem || clipperItem.count <= 0) {
+            showToast('😢 指甲剪用完了，去商场补货吧！');
+            closeModal('interaction-modal');
+            return;
+        }
+        clipperItem.count--;
+    }
+
+    // ★ 喂药时消耗药物并治疗疾病
+    if (action === 'clean' && option.id === 'med') {
+        const medItem = gameState.locker.supplies.find(s => s.id === 's5');
+        if (!medItem || medItem.count <= 0) {
+            showToast('😢 药用完了，去商场补货吧！');
+            closeModal('interaction-modal');
+            return;
+        }
+        medItem.count--;
+        // 治疗效果
+        if (pet.isSick) {
+            pet.isSick = false;
+            pet.sickStartTime = null;
+            showToast(`💊 ${pet.name}吃了药，病好了！心情+10`);
+        }
+    }
+
     // 收集状态变化
     const changes = [];
     
@@ -5187,7 +5338,7 @@ function addExp(pet, amount, isTaskExp = false) {
             gameState.lastExpReset = today;
         }
         
-        const remaining = 500 - gameState.dailyExp;
+        const remaining = 1500 - gameState.dailyExp;
         if (remaining <= 0) {
             showToast('今日经验已达上限，明天再来吧~');
             return;

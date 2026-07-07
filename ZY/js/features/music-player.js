@@ -68,12 +68,24 @@
 
     // ★ 一起听模式
     var togetherMode = false;          // 是否正在一起听
-    var soloListener = 'me';           // ★ 独自听歌时谁在听: 'me' | 'partner'
     var partnerInviteTimeout = null;   // 邀请超时计时器
     var partnerActionTimer = null;     // 梦角行为计时器
     var PARTNER_ACTION_MIN = 60000;     // 梦角行为最小间隔 1分钟
     var PARTNER_ACTION_MAX = 600000;    // 梦角行为最大间隔 10分钟
     var INVITE_TIMEOUT = 30000;        // 邀请超时 30秒
+
+    // ★ 梦角独立听歌系统（分离自一起听模式，独立概率触发）
+    var partnerSoloActive = false;     // 梦角是否正在独自听歌
+    var partnerSoloTimer = null;       // 梦角独立听歌检查计时器
+    var partnerSoloPlayTimer = null;   // 梦角独立听歌虚拟播放计时器
+    var partnerSoloEndTimer = null;    // 梦角独立听歌结束计时器
+    var PARTNER_SOLO_CHECK_MIN = 60000;       // 独立听歌检查间隔最小 1分钟
+    var PARTNER_SOLO_CHECK_MAX = 2700000;     // 独立听歌检查间隔最大 45分钟
+    var PARTNER_SOLO_PROB = 0.12;             // 每次检查触发概率 12%
+    var PARTNER_SOLO_DURATION_MIN = 300000;   // 独立听歌最短持续 5分钟
+    var PARTNER_SOLO_DURATION_MAX = 1800000;  // 独立听歌最长持续 30分钟
+    var PARTNER_SOLO_PLAY_MIN = 30000;        // 虚拟播放间隔最小 30秒
+    var PARTNER_SOLO_PLAY_MAX = 3600000;      // 虚拟播放间隔最大 60分钟
 
     // ★ 排行榜数据
     var leaderboardData = {
@@ -626,24 +638,29 @@
         }
     }
 
-    // ★ 模式状态显示（独自听歌 / 和梦角一起听）
+    // ★ 模式状态显示：优先级 together > 梦角独听 > 我独听 > 隐藏
     function updateModeStatus() {
         if (!$modeStatus || !$modeStatusText) return;
         if (togetherMode) {
             $modeStatusText.textContent = '💕 和梦角一起听';
             $modeStatusText.className = 'mode-together';
-        } else if (soloListener === 'partner') {
+            $modeStatus.style.display = '';
+        } else if (partnerSoloActive) {
             $modeStatusText.textContent = '🌙 梦角在独自听歌';
             $modeStatusText.className = 'mode-solo';
-        } else {
+            $modeStatus.style.display = '';
+        } else if (isPlaying && currentIndex >= 0) {
             $modeStatusText.textContent = '🎧 我在独自听歌';
             $modeStatusText.className = 'mode-solo';
+            $modeStatus.style.display = '';
+        } else {
+            // ★ 无任何听歌模式 → 隐藏状态栏
+            $modeStatus.style.display = 'none';
         }
-        $modeStatus.style.display = '';
         // 同步更新灵动岛标题
         if ($islandTitle) {
             var song = playlist[currentIndex];
-            var prefix = togetherMode ? '💕 ' : (soloListener === 'partner' ? '🌙 ' : '');
+            var prefix = togetherMode ? '💕 ' : (partnerSoloActive ? '🌙 ' : '');
             $islandTitle.textContent = prefix + (song ? song.title : '未在播放');
         }
     }
@@ -690,15 +707,13 @@
     }
 
     // ======================== 播放排行 ========================
+    // ★ 真实播放排行：只计入 myTop（独听）或 togetherTop（一起听），不再混淆梦角排行
     function recordPlayCount(song) {
         if (!song) return;
         var id = song.id;
         if (togetherMode) {
-            // 一起听模式：只计入一起听排行（我的排行仅统计独自听歌）
+            // 一起听模式：一起听排行（我邀请+梦角邀请的合并数据）
             leaderboardData.togetherTop[id] = (leaderboardData.togetherTop[id] || 0) + 1;
-        } else if (soloListener === 'partner') {
-            // 梦角独自听歌：计入梦角排行（虚拟随机数据）
-            leaderboardData.partnerTop[id] = (leaderboardData.partnerTop[id] || 0) + 1;
         } else {
             // 我在独自听歌：计入我的排行（真实播放数据）
             leaderboardData.myTop[id] = (leaderboardData.myTop[id] || 0) + 1;
@@ -706,24 +721,22 @@
         saveLeaderboardData();
     }
 
+    // ★ 梦角虚拟播放记录：独立于真实播放，仅用于 partnerTop 排行
     function recordPartnerPlay(song) {
         if (!song) return;
-        // ★ 一起听模式下排行和时长由 recordPlayCount/recordListenDuration 计入 togetherTop/togetherTotalTime
-        // 梦角独自听歌时才计入 partnerTop/partnerTotalTime（虚拟随机数据）
-        if (!togetherMode) {
-            leaderboardData.partnerTop[song.id] = (leaderboardData.partnerTop[song.id] || 0) + 1;
-            var virtualDur = 60 + Math.floor(Math.random() * 240); // 60~300秒
-            leaderboardData.partnerTotalTime += virtualDur;
-            leaderboardData.totalListenTime += virtualDur;
-        }
-        // 梦角听歌记录（无论何种模式都记录历史）
+        // 梦角独立听歌：计入 partnerTop + 虚拟随机时长
+        leaderboardData.partnerTop[song.id] = (leaderboardData.partnerTop[song.id] || 0) + 1;
+        var virtualDur = 60 + Math.floor(Math.random() * 240); // 60~300秒
+        leaderboardData.partnerTotalTime += virtualDur;
+        leaderboardData.totalListenTime += virtualDur;
+        // 梦角听歌记录
         partnerListenHistory.push({
             id: 'ph_' + Date.now(),
             songId: song.id,
             title: song.title || '未知歌曲',
             artist: song.artist || '',
             time: Date.now(),
-            together: togetherMode
+            together: false
         });
         if (partnerListenHistory.length > 200) partnerListenHistory.shift();
         saveLeaderboardData();
@@ -733,15 +746,12 @@
         if (leaderboardData.listenStartTime > 0) {
             var dur = (Date.now() - leaderboardData.listenStartTime) / 1000;
             if (dur > 0 && dur < 3600) { // 忽略异常的极长时长
-                leaderboardData.totalListenTime += dur; // 总时长 = 三者之和
+                leaderboardData.totalListenTime += dur;
                 if (togetherMode) {
-                    // 一起听模式：只计入一起听时长（我的时长仅统计独自听歌）
+                    // 一起听模式：时长计入一起听
                     leaderboardData.togetherTotalTime += dur;
-                } else if (soloListener === 'partner') {
-                    // 梦角独自听歌：时长归属梦角（虚拟随机数据）
-                    leaderboardData.partnerTotalTime += dur;
                 } else {
-                    // 我在独自听歌：时长归属我（真实播放数据）
+                    // 我在独自听歌：时长计入我的排行（真实播放）
                     leaderboardData.myTotalTime += dur;
                 }
             }
@@ -961,7 +971,8 @@
     // ======================== 一起听模式 ========================
     function enterTogetherMode() {
         togetherMode = true;
-        soloListener = 'me';
+        // ★ 进入一起听时，停止梦角独立听歌（如果正在）
+        if (partnerSoloActive) endPartnerSolo();
         updateModeStatus();
         if ($inviteBtn) $inviteBtn.innerHTML = '<i class="fas fa-user-times"></i> 退出一起听';
         if ($inviteBtn) $inviteBtn.style.borderColor = '#e94560';
@@ -973,7 +984,6 @@
     function exitTogetherMode(who) {
         who = who || 'me';
         togetherMode = false;
-        soloListener = who === 'partner' ? 'partner' : 'me';
         updateModeStatus();
         if ($inviteBtn) $inviteBtn.innerHTML = '<i class="fas fa-user-plus"></i> 邀请梦角一起听';
         if ($inviteBtn) $inviteBtn.style.borderColor = '';
@@ -1046,7 +1056,7 @@
 
             var song = playlist[newIndex];
             notify('🎵 梦角切到了「' + (song.title || '未知歌曲') + '」', 'info', 4000);
-            recordPartnerPlay(song);
+            // ★ 一起听中梦角切歌是真实播放，走 playSong → recordPlayCount（写入 togetherTop）
             playSong(newIndex);
             schedulePartnerAction();
         }
@@ -1054,6 +1064,98 @@
         else {
             schedulePartnerAction();
         }
+    }
+
+    // ======================== ★★★ 梦角独立听歌概率系统 ★★★ ========================
+    // 独立于一起听模式，每1-45分钟概率检查，触发后梦角虚拟随机听歌并记录排行数据
+    // 只有梦角独立听歌是随机虚拟（不真实播放音频），其他模式均真实播放。
+
+    function schedulePartnerSoloCheck() {
+        if (partnerSoloTimer) clearTimeout(partnerSoloTimer);
+        var delay = PARTNER_SOLO_CHECK_MIN + Math.random() * (PARTNER_SOLO_CHECK_MAX - PARTNER_SOLO_CHECK_MIN);
+        partnerSoloTimer = setTimeout(function() {
+            checkPartnerSoloStart();
+        }, delay);
+    }
+
+    function checkPartnerSoloStart() {
+        if (partnerSoloActive) { schedulePartnerSoloCheck(); return; }
+        if (togetherMode) { schedulePartnerSoloCheck(); return; }
+        if (playlist.length === 0) { schedulePartnerSoloCheck(); return; }
+
+        var roll = Math.random();
+        if (roll < PARTNER_SOLO_PROB) {
+            startPartnerSolo();
+        } else {
+            schedulePartnerSoloCheck();
+        }
+    }
+
+    function startPartnerSolo() {
+        partnerSoloActive = true;
+        updateModeStatus();
+
+        var startMsgs = [
+            '🌙 梦角开始独自听歌了~',
+            '🌙 梦角戴上耳机，享受一个人的音乐时光...',
+            '🌙 梦角打开了播放器，安静地听起了歌...',
+            '🌙 梦角说"让我也来听听歌吧~"'
+        ];
+        notify(startMsgs[Math.floor(Math.random() * startMsgs.length)], 'info', 3000);
+
+        // 立即进行一次虚拟播放
+        doPartnerSoloPlay();
+
+        // 设置梦角独立听歌结束时间
+        var duration = PARTNER_SOLO_DURATION_MIN + Math.random() * (PARTNER_SOLO_DURATION_MAX - PARTNER_SOLO_DURATION_MIN);
+        if (partnerSoloEndTimer) clearTimeout(partnerSoloEndTimer);
+        partnerSoloEndTimer = setTimeout(function() {
+            endPartnerSolo();
+        }, duration);
+    }
+
+    function doPartnerSoloPlay() {
+        if (!partnerSoloActive) return;
+        if (playlist.length === 0) { endPartnerSolo(); return; }
+
+        // 随机选一首歌
+        var song = playlist[Math.floor(Math.random() * playlist.length)];
+        recordPartnerPlay(song);
+
+        // 偶尔弹提示
+        if (Math.random() < 0.3) {
+            var playMsgs = [
+                '🎵 梦角正在听「' + (song.title || '未知歌曲') + '」...',
+                '🎧 梦角切到了「' + (song.title || '未知歌曲') + '」',
+                '♪ 梦角单曲循环中...'
+            ];
+            notify(playMsgs[Math.floor(Math.random() * playMsgs.length)], 'info', 2500);
+        }
+
+        // 安排下一次虚拟播放
+        var nextDelay = PARTNER_SOLO_PLAY_MIN + Math.random() * (PARTNER_SOLO_PLAY_MAX - PARTNER_SOLO_PLAY_MIN);
+        if (partnerSoloPlayTimer) clearTimeout(partnerSoloPlayTimer);
+        partnerSoloPlayTimer = setTimeout(function() {
+            doPartnerSoloPlay();
+        }, nextDelay);
+    }
+
+    function endPartnerSolo() {
+        partnerSoloActive = false;
+        if (partnerSoloPlayTimer) clearTimeout(partnerSoloPlayTimer);
+        partnerSoloPlayTimer = null;
+        if (partnerSoloEndTimer) clearTimeout(partnerSoloEndTimer);
+        partnerSoloEndTimer = null;
+        updateModeStatus();
+
+        var endMsgs = [
+            '🌙 梦角停下了音乐，去忙别的事了~',
+            '🌙 梦角摘下了耳机...'
+        ];
+        notify(endMsgs[Math.floor(Math.random() * endMsgs.length)], 'info', 3000);
+
+        // 重新开始检查循环
+        schedulePartnerSoloCheck();
     }
 
     function showPartnerActionPopup(icon, title, subtitle, callback) {
@@ -1080,7 +1182,8 @@
     var _partnerAcceptProbability = 0.4;
 
     function triggerPartnerAutoInvite() {
-        if (togetherMode) return; // 已在一起听模式，不需要再邀请
+        if (togetherMode) return;      // 已在一起听模式，不需要再邀请
+        if (partnerSoloActive) return; // 梦角正在独听中，不再发送邀请
         if (playlist.length === 0) return;
         if (inviteCooldown > 0) { inviteCooldown--; return; }
         var roll = Math.random();
@@ -1184,6 +1287,7 @@
         currentIndex = -1;
         _minimized = false;
         updatePlayButton();
+        updateModeStatus();
         hideDynamicIsland();
         if ($nowTitle) $nowTitle.textContent = '未在播放';
         if ($nowArtist) $nowArtist.textContent = '';
@@ -2280,6 +2384,8 @@
             updateModeStatus();
             updateStorageBar();
             loadLeaderboardData();
+            // ★ 启动梦角独立听歌概率检查
+            schedulePartnerSoloCheck();
             setTimeout(injectSettingsUI, 800);
 
             var settingsBtn = document.getElementById('settings-btn');
@@ -2317,10 +2423,9 @@
         getLeaderboardData: getLeaderboardData,
         getPartnerHistory: function() { return partnerListenHistory; },
         isTogetherMode: function() { return togetherMode; },
+        isPartnerSoloActive: function() { return partnerSoloActive; },
         getPlayMode: function() { return playMode; },
-        importFromURL: importFromURL,
-        setSoloListener: function(who) { soloListener = who; updateModeStatus(); },
-        getSoloListener: function() { return soloListener; }
+        importFromURL: importFromURL
     };
 
     global.MusicPlayerApp = MusicPlayer;
