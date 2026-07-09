@@ -106,19 +106,60 @@
 
   // ========== Sample Data (从 localStorage 恢复，或初始化为空) ==========
   const momentsData = [];
-  (function loadMomentsFromStorage() {
+  // ===== 数据加载（localStorage → IDB 备份回退 → 数据校验）=====
+  let _momentsBackupRestored = false;
+  async function loadMomentsFromStorageAsync() {
+    let source = 'none';
     try {
+      // 1. 尝试从 localStorage 加载
       const saved = localStorage.getItem('moments_data');
-      console.log('[Moments] loadMomentsFromStorage, saved length:', saved ? saved.length : 0);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          parsed.forEach(m => momentsData.push(m));
-          console.log('[Moments] 加载了', parsed.length, '条朋友圈');
+          source = 'localStorage';
+          parsed.forEach((m, i) => {
+            if (validateMomentItem(m, i)) momentsData.push(m);
+          });
+          console.log('[Moments] 从 localStorage 加载', momentsData.length, '条数据');
         }
       }
+
+      // 2. 如果 localStorage 为空，尝试从 IndexedDB 备份恢复
+      if (momentsData.length === 0) {
+        console.warn('[Moments] localStorage 中无朋友圈数据，尝试从 IndexedDB 备份恢复...');
+        const backup = await loadMomentsBackupFromIDB();
+        if (backup && backup.length > 0) {
+          backup.forEach((m, i) => {
+            if (validateMomentItem(m, i)) momentsData.push(m);
+          });
+          _momentsBackupRestored = true;
+          source = 'IDB backup';
+          console.log('[Moments] 从 IndexedDB 备份恢复', momentsData.length, '条数据！');
+          // 恢复成功后立即写回 localStorage
+          saveMomentsToStorageSyncInternal();
+        }
+      }
+
+      // 3. 如果也没有 IDB 备份，说明是全新用户
+      if (momentsData.length === 0) {
+        console.log('[Moments] 无本地数据，显示空状态');
+      }
+
+      console.log('[Moments] 数据加载完成 (来源:', source, '), 共', momentsData.length, '条');
     } catch(e) {
-      console.error('[Moments] loadMomentsFromStorage 失败:', e);
+      console.error('[Moments] 数据加载失败:', e);
+      // 最终兜底：尝试从 IDB 恢复
+      try {
+        const backup = await loadMomentsBackupFromIDB();
+        if (backup && backup.length > 0) {
+          momentsData.length = 0;
+          backup.forEach((m, i) => {
+            if (validateMomentItem(m, i)) momentsData.push(m);
+          });
+          _momentsBackupRestored = true;
+          console.log('[Moments] 异常后从 IDB 恢复', backup.length, '条');
+        }
+      } catch(e2) { console.error('[Moments] 兜底恢复也失败:', e2); }
     }
 
     // 数据加载完成后，触发 TA的手机 历史扫描
@@ -127,7 +168,9 @@
         window.TaPhoneApp.init();
       }
     }, 100);
-  })();
+  }
+  // 同步启动加载（不阻塞 init()，因为 init() 中 await renderMoments 会确保数据就绪）
+  loadMomentsFromStorageAsync();
 
   // ========== 大文件存储（IndexedDB）- 视频 + 图片 ==========
   // 图片压缩阈值：超过此大小的 base64 存入 IndexedDB
@@ -137,11 +180,12 @@
 
   function openMomentsDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('MomentsVideoDB', 2);
+      const req = indexedDB.open('MomentsVideoDB', 3);
       req.onupgradeneeded = e => {
         const db = e.target.result;
         if (!db.objectStoreNames.contains('videos')) db.createObjectStore('videos');
         if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
+        if (!db.objectStoreNames.contains('moments_backup')) db.createObjectStore('moments_backup');
       };
       req.onsuccess = e => resolve(e.target.result);
       req.onerror = e => reject(e);
@@ -218,6 +262,76 @@
     } catch(e) { console.warn('IDB 清理失败:', e); }
   }
 
+  // ========== 朋友圈元数据 IndexedDB 备份（防止 localStorage 丢失导致数据全部消失）==========
+  async function saveMomentsBackupToIDB(dataToBackup) {
+    try {
+      const db = await openMomentsDB();
+      const tx = db.transaction('moments_backup', 'readwrite');
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        // 备份时把大图片替换为引用（不备份巨量 base64 到 IDB 的 moments_backup 中，
+        // 图片本身已在 images store 中独立存储）
+        const light = dataToBackup.map(m => {
+          const item = { ...m, images: [...m.images], comments: m.comments ? [...m.comments] : [], likes: m.likes ? [...m.likes] : [] };
+          item.images = item.images.map((img, i) => {
+            if (typeof img === 'string' && img.length > 20000) {
+              return '__IDB_IMG__' + m.id + '_' + i;
+            }
+            return img;
+          });
+          if (item.video && item.video.url && item.video.url.length > 1000 && !item.video.url.startsWith('__IDB__')) {
+            item.video = { ...item.video, url: '__IDB__' + m.id };
+          }
+          return item;
+        });
+        tx.objectStore('moments_backup').put(JSON.stringify(light), 'moments_data');
+      });
+      console.log('[Moments] IDB 备份成功');
+    } catch(e) { console.warn('[Moments] IDB 备份失败:', e); }
+  }
+
+  async function loadMomentsBackupFromIDB() {
+    try {
+      const db = await openMomentsDB();
+      return new Promise(resolve => {
+        const tx = db.transaction('moments_backup', 'readonly');
+        const req = tx.objectStore('moments_backup').get('moments_data');
+        req.onsuccess = () => {
+          if (req.result && typeof req.result === 'string') {
+            try {
+              const parsed = JSON.parse(req.result);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                console.log('[Moments] 从 IDB 备份恢复成功，共', parsed.length, '条');
+                resolve(parsed);
+                return;
+              }
+            } catch(e) { console.warn('[Moments] IDB 备份 JSON 解析失败:', e); }
+          }
+          resolve(null);
+        };
+        req.onerror = () => resolve(null);
+      });
+    } catch(e) { return null; }
+  }
+
+  // ========== 数据完整性校验 ==========
+  function validateMomentItem(item, index) {
+    // 必须有 id 和 time，且 id 必须是有效数字
+    if (!item || typeof item !== 'object') return false;
+    if (item.id === undefined || item.id === null) return false;
+    if (!item.time || typeof item.time !== 'number') {
+      console.warn('[Moments] 第', index, '条数据缺少时间戳，已跳过');
+      return false;
+    }
+    if (!item.nickname) item.nickname = '我';
+    if (!item.text && item.text !== '') item.text = '';
+    if (!Array.isArray(item.images)) item.images = [];
+    if (!Array.isArray(item.likes)) item.likes = [];
+    if (!Array.isArray(item.comments)) item.comments = [];
+    return true;
+  }
+
   // 压缩图片：缩小尺寸 + 降低质量
   function compressImage(base64, maxWidth, quality) {
     return new Promise((resolve) => {
@@ -245,7 +359,8 @@
 
   // 同步保存朋友圈数据到 localStorage（确保不丢失）
   // 保留所有原始数据，不做任何修改
-  function saveMomentsToStorageSync() {
+  // 内部版本：只写 localStorage，不触发 IDB 备份（避免递归）
+  function saveMomentsToStorageSyncInternal() {
     try {
       const dataToSave = momentsData.map(m => ({
         ...m,
@@ -255,10 +370,10 @@
       }));
       const jsonStr = JSON.stringify(dataToSave);
       localStorage.setItem('moments_data', jsonStr);
-      console.log('[Moments] 同步保存成功，共', momentsData.length, '条，大小', Math.round(jsonStr.length / 1024), 'KB');
+      return true;
     } catch(e) {
-      console.warn('[Moments] 同步保存失败:', e);
-      // 存储超限时，尝试将大图片替换为 IDB 引用后保存
+      console.warn('[Moments] 保存失败:', e);
+      // 降级：将大图片替换为 IDB 引用
       try {
         const reduced = momentsData.map(m => {
           const saved = { ...m, images: [...m.images] };
@@ -275,10 +390,21 @@
         });
         localStorage.setItem('moments_data', JSON.stringify(reduced));
         console.warn('[Moments] 已降级保存（大图片替换为IDB引用）');
+        return false;
       } catch(e2) {
         console.error('[Moments] 降级保存也失败:', e2);
+        return false;
       }
     }
+  }
+
+  function saveMomentsToStorageSync() {
+    const ok = saveMomentsToStorageSyncInternal();
+    if (ok) {
+      console.log('[Moments] 同步保存成功，共', momentsData.length, '条');
+    }
+    // 同时异步备份到 IndexedDB（防止 localStorage 丢失导致数据全部消失）
+    saveMomentsBackupToIDB(momentsData);
   }
 
   // 异步保存朋友圈数据到 localStorage（视频和大图片存 IndexedDB，localStorage 只保留引用）
@@ -311,14 +437,23 @@
       localStorage.setItem('moments_data', JSON.stringify(dataToSave));
     } catch(e) {
       console.warn('保存朋友圈数据失败（可能超出存储限制）:', e);
-      // 存储超限时，尝试只保存文本数据（不含图片）
+      // 存储超限时，用 IDB 引用替换大图片后重试（图片已存入 IDB，不会丢失）
       try {
-        const textOnly = momentsData.map(m => ({
-          ...m,
-          images: m.images.map(img => typeof img === 'string' && img.length > 100 ? '[图片]' : img)
-        }));
-        localStorage.setItem('moments_data', JSON.stringify(textOnly));
-        console.warn('已降级保存（仅文本）');
+        const reduced = momentsData.map(m => {
+          const saved = { ...m, images: [...m.images] };
+          for (let ii = 0; ii < saved.images.length; ii++) {
+            const img = saved.images[ii];
+            if (typeof img === 'string' && img.length > IDB_IMAGE_THRESHOLD && !img.startsWith('__IDB_IMG__')) {
+              saved.images[ii] = '__IDB_IMG__' + m.id + '_' + ii;
+            }
+          }
+          if (saved.video && saved.video.url && saved.video.url.length > 1000 && !saved.video.url.startsWith('__IDB__')) {
+            saved.video = { ...saved.video, url: '__IDB__' + m.id };
+          }
+          return saved;
+        });
+        localStorage.setItem('moments_data', JSON.stringify(reduced));
+        console.warn('已降级保存（大文件替换为IDB引用）');
       } catch(e2) {
         console.error('降级保存也失败:', e2);
       }
@@ -467,34 +602,50 @@
 
   // 从 IndexedDB 恢复所有 __IDB_IMG__ 引用的图片
   async function restoreImagesFromIDB() {
-    for (let mi = 0; mi < momentsData.length; mi++) {
-      const m = momentsData[mi];
-      if (!m.images || !Array.isArray(m.images)) { m.images = []; continue; }
-      for (let ii = 0; ii < m.images.length; ii++) {
-        const img = m.images[ii];
-        if (typeof img === 'string' && img.startsWith('__IDB_IMG__')) {
-          // 解析 key: __IDB_IMG__{momentId}_{imageIndex}
-          const key = img.replace('__IDB_IMG__', '');
-          const parts = key.split('_');
-          if (parts.length >= 2) {
-            const data = await getImageFromIDB(parseInt(parts[0]), parseInt(parts[1]));
-            if (data) {
-              m.images[ii] = data; // 恢复到内存
-            } else {
-              console.warn('[Moments] IDB 图片恢复失败:', key);
-              m.images[ii] = ''; // 标记为空，避免重复尝试
+    try {
+      for (let mi = 0; mi < momentsData.length; mi++) {
+        const m = momentsData[mi];
+        if (!m || !m.images || !Array.isArray(m.images)) {
+          if (m) m.images = [];
+          continue;
+        }
+        for (let ii = 0; ii < m.images.length; ii++) {
+          try {
+            const img = m.images[ii];
+            if (typeof img === 'string' && img.startsWith('__IDB_IMG__')) {
+              const key = img.replace('__IDB_IMG__', '');
+              const parts = key.split('_');
+              if (parts.length >= 2) {
+                const data = await getImageFromIDB(parseInt(parts[0]), parseInt(parts[1]));
+                if (data) {
+                  m.images[ii] = data;
+                } else {
+                  console.warn('[Moments] IDB 图片恢复失败:', m.id, ii);
+                  m.images[ii] = '';
+                }
+              }
             }
+          } catch(imgErr) {
+            console.warn('[Moments] 单张图片恢复异常:', m.id, ii, imgErr);
+            m.images[ii] = '';
           }
         }
-      }
-      // 恢复视频
-      if (m.video && m.video.url && m.video.url.startsWith('__IDB__')) {
-        const momentId = parseInt(m.video.url.replace('__IDB__', ''));
-        const data = await getVideoFromIDB(momentId);
-        if (data) {
-          m.video.url = data; // 恢复到内存
+        // 恢复视频
+        try {
+          if (m.video && m.video.url && typeof m.video.url === 'string' && m.video.url.startsWith('__IDB__')) {
+            const momentId = parseInt(m.video.url.replace('__IDB__', ''));
+            if (!isNaN(momentId)) {
+              const data = await getVideoFromIDB(momentId);
+              if (data) m.video.url = data;
+            }
+          }
+        } catch(vidErr) {
+          console.warn('[Moments] 视频恢复异常:', m.id, vidErr);
         }
       }
+    } catch(e) {
+      console.error('[Moments] restoreImagesFromIDB 异常，跳过图片恢复继续渲染:', e);
+      // 不抛出异常，保证列表能正常渲染
     }
   }
 
@@ -1122,7 +1273,9 @@
     if (!container) return;
     
     const textEl = container.querySelector('#mt-' + momentId);
+    if (!textEl) return;
     const expandBtn = textEl.nextElementSibling;
+    if (!expandBtn) return;
     if (textEl.classList.contains('collapsed')) {
       textEl.classList.remove('collapsed');
       expandBtn.textContent = '收起';
@@ -1841,9 +1994,14 @@
     if (!momentId) return;
     closeNotificationDetailPanel();
     setTimeout(function() {
-      var card = document.querySelector('.moment-card[data-moment-id="' + momentId + '"]');
+      var container = document.getElementById('moments-container');
+      if (!container) return;
+      var card = container.querySelector('.moment-card[data-moment-id="' + momentId + '"]');
       if (!card) {
-        card = document.querySelector('.moment-card[data-moment-id="' + Number(momentId) + '"]');
+        var numId = Number(momentId);
+        if (!isNaN(numId)) {
+          card = container.querySelector('.moment-card[data-moment-id="' + numId + '"]');
+        }
       }
       if (card) {
         // 使用 scrollIntoView 滚动到卡片位置
@@ -2376,12 +2534,17 @@
     const container = document.getElementById('moments-container');
     if (!container) return;
     
-    container.querySelector('#searchInput').value = '';
-    container.querySelector('#searchDateFrom').value = '';
-    container.querySelector('#searchDateTo').value = '';
-    container.querySelector('#searchClear').classList.remove('active');
-    container.querySelector('#searchBody').innerHTML = '<div class="search-empty">输入关键词搜索朋友圈内容</div>';
-    container.querySelector('#searchInput').focus();
+    var searchInput = container.querySelector('#searchInput');
+    var searchDateFrom = container.querySelector('#searchDateFrom');
+    var searchDateTo = container.querySelector('#searchDateTo');
+    var searchClear = container.querySelector('#searchClear');
+    var searchBody = container.querySelector('#searchBody');
+    if (searchInput) searchInput.value = '';
+    if (searchDateFrom) searchDateFrom.value = '';
+    if (searchDateTo) searchDateTo.value = '';
+    if (searchClear) searchClear.classList.remove('active');
+    if (searchBody) searchBody.innerHTML = '<div class="search-empty">输入关键词搜索朋友圈内容</div>';
+    if (searchInput) searchInput.focus();
   }
 
   function scrollToMoment(momentId) {
@@ -2390,14 +2553,16 @@
     const container = document.getElementById('moments-container');
     if (!container) return;
     
-    const cards = container.querySelectorAll('.moment-card');
-    const idx = momentsData.findIndex(m => m.id === momentId);
-    if (idx >= 0 && cards[idx]) {
-      cards[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      cards[idx].style.background = '#fffbe6';
-      setTimeout(() => {
-        cards[idx].style.background = '#fff';
-      }, 1500);
+    var card = container.querySelector('.moment-card[data-moment-id="' + momentId + '"]');
+    if (!card) {
+      var numId = Number(momentId);
+      if (!isNaN(numId)) card = container.querySelector('.moment-card[data-moment-id="' + numId + '"]');
+    }
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.style.transition = 'background 0.5s ease';
+      card.style.background = 'rgba(87, 107, 149, 0.12)';
+      setTimeout(function() { card.style.background = ''; }, 1500);
     }
   }
 
@@ -3132,23 +3297,22 @@
     const container = document.getElementById('moments-container');
     if (!container) return;
     
-    container.querySelector('#mask').classList.remove('active');
-    container.querySelector('#publishPanel').classList.remove('active');
-    container.querySelector('#commentPopup').classList.remove('active');
-    container.querySelector('#commentEmojiPanel').classList.remove('active');
-    container.querySelector('#publishStickerPanel').classList.remove('active');
-    container.querySelector('#customPanel').classList.remove('active');
-    container.querySelector('#mentionPanel').classList.remove('active');
-    container.querySelector('#locationPanel').classList.remove('active');
-    container.querySelector('#editPanel').classList.remove('active');
-    container.querySelector('#beautifyPanel').classList.remove('active');
-    container.querySelector('#visitorPanel').classList.remove('active');
+    // 安全关闭所有面板（逐个检查元素是否存在）
+    var panels = ['#mask', '#publishPanel', '#commentPopup', '#commentEmojiPanel',
+                  '#publishStickerPanel', '#customPanel', '#mentionPanel',
+                  '#locationPanel', '#editPanel', '#beautifyPanel', '#visitorPanel'];
+    panels.forEach(function(sel) {
+      var el = container.querySelector(sel);
+      if (el) el.classList.remove('active');
+    });
+
     // 隐藏评论表情包预览
     const stickerPreview = container.querySelector('#commentStickerPreview');
     if (stickerPreview) {
       stickerPreview.classList.remove('active');
       stickerPreview.style.display = 'none';
-      stickerPreview.querySelector('img').src = '';
+      var img = stickerPreview.querySelector('img');
+      if (img) img.src = '';
     }
     currentCommentMomentId = null;
     replyToName = null;
