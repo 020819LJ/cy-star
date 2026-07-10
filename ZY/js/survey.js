@@ -166,7 +166,7 @@
             '<input type="file" id="surveyImportInput" accept=".json" style="display:none" onchange="SurveyApp.handleImport(event)">' +
           '</div>' +
           '<div id="surveyDeck" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;"></div>' +
-          '<div class="survey-invite-popup" id="surveyInvitePopup" style="display:none;">' +
+          '<div class="survey-invite-popup" id="surveyInvitePopup">' +
             '<div class="sip-icon" id="sipIcon"></div>' +
             '<div class="sip-body">' +
               '<div class="sip-title" id="sipTitle"></div>' +
@@ -270,8 +270,10 @@
   function _removeAndHide(btn) {
     var modal = btn.closest('.modal');
     if (modal) {
-      hideModal(modal);
-      setTimeout(function () { modal.remove(); }, 300);
+      // Instant hide + remove (no hideModal to avoid header restore when main modal is open)
+      modal.style.display = 'none';
+      modal.style.zIndex = '';
+      modal.remove();
     }
   }
 
@@ -328,12 +330,13 @@
   async function deleteRecord(id) {
     surveyRecords = surveyRecords.filter(function (r) { return r.id !== id; });
     await saveSurveyData();
-    // Close the summary modal
+    // Close all sub-modals (instant, no header restore)
     var modals = document.querySelectorAll('.modal');
     for (var i = modals.length - 1; i >= 0; i--) {
       if (modals[i].id !== 'surveyModal') {
-        hideModal(modals[i]);
-        (function (m) { setTimeout(function () { m.remove(); }, 300); })(modals[i]);
+        modals[i].style.display = 'none';
+        modals[i].style.zIndex = '';
+        modals[i].remove();
       }
     }
     renderSurveys();
@@ -349,12 +352,13 @@
     surveys = surveys.filter(function (sv) { return sv.id !== id; });
     surveyRecords = surveyRecords.filter(function (r) { return r.surveyId !== id; });
     await saveSurveyData();
-    // Close all sub-modals
+    // Close all sub-modals (instant, no header restore)
     var modals = document.querySelectorAll('.modal');
     for (var i = modals.length - 1; i >= 0; i--) {
       if (modals[i].id !== 'surveyModal') {
-        hideModal(modals[i]);
-        (function (m) { setTimeout(function () { m.remove(); }, 300); })(modals[i]);
+        modals[i].style.display = 'none';
+        modals[i].style.zIndex = '';
+        modals[i].remove();
       }
     }
     renderSurveys();
@@ -644,8 +648,9 @@
   function _closeEdit() {
     var modal = document.getElementById('surveyEditModal');
     if (modal) {
-      hideModal(modal);
-      setTimeout(function () { modal.remove(); }, 300);
+      modal.style.display = 'none';
+      modal.style.zIndex = '';
+      modal.remove();
     }
     editState = null;
   }
@@ -653,12 +658,23 @@
   // ==================== Invite Flow ====================
 
   function inviteSurvey(id) {
-    // Close the detail modal
+    // Close the detail sub-modal (instantly, no header restore since main modal stays open)
     var modals = document.querySelectorAll('.modal');
     for (var i = modals.length - 1; i >= 0; i--) {
       if (modals[i].id !== 'surveyModal') {
-        hideModal(modals[i]);
-        (function (m) { setTimeout(function () { m.remove(); }, 300); })(modals[i]);
+        modals[i].style.display = 'none';
+        modals[i].style.zIndex = '';
+        modals[i].remove();
+      }
+    }
+    // Re-show main modal content (may have been faded by sub-modal interactions)
+    var mainModal = document.getElementById('surveyModal');
+    if (mainModal) {
+      mainModal.style.display = 'flex';
+      var mainContent = mainModal.querySelector('.modal-content');
+      if (mainContent) {
+        mainContent.style.opacity = '1';
+        mainContent.style.transform = 'translateY(0) scale(1)';
       }
     }
 
@@ -668,27 +684,34 @@
     var sipSub = document.getElementById('sipSub');
     if (!popup) return;
 
+    // Reset class and set initial state
+    popup.className = 'survey-invite-popup';
     sipIcon.innerHTML = '<i class="fas fa-paper-plane" style="font-size:28px;color:var(--accent-color);"></i>';
     sipTitle.textContent = '\u5df2\u53d1\u51fa\u9080\u8bf7 \u00b7 \u7b49\u5f85\u5bf9\u65b9\u56de\u5e94\u2026';
     sipSub.textContent = '';
-    popup.style.display = 'flex';
+    // Trigger CSS transition
+    requestAnimationFrame(function() { popup.classList.add('on'); });
 
     setTimeout(function () {
       var accepted = Math.random() < 0.5;
       if (accepted) {
+        popup.className = 'survey-invite-popup on accept';
         sipIcon.innerHTML = '<i class="fas fa-check-circle" style="font-size:28px;color:#27ae60;"></i>';
         sipTitle.textContent = '\u5bf9\u65b9\u63a5\u53d7\u4e86\u9080\u8bf7';
         sipSub.textContent = '\u6b63\u5728\u8fdb\u5165\u95ee\u5377\u2026';
         setTimeout(function () {
-          popup.style.display = 'none';
-          startSurveyFill(id);
+          popup.classList.remove('on');
+          // Close main modal before opening full-screen fill
+          hideModal(mainModal);
+          setTimeout(function () { startSurveyFill(id); }, 300);
         }, 1400);
       } else {
+        popup.className = 'survey-invite-popup on decline';
         sipIcon.innerHTML = '<i class="fas fa-times-circle" style="font-size:28px;color:#e74c3c;"></i>';
         sipTitle.textContent = '\u5bf9\u65b9\u62d2\u7edd\u4e86\u9080\u8bf7';
         sipSub.textContent = '';
         setTimeout(function () {
-          popup.style.display = 'none';
+          popup.classList.remove('on');
         }, 1800);
       }
     }, 1300);
