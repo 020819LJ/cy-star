@@ -1,0 +1,648 @@
+/* ═══════════════════════════════════════════════════
+   问卷模块 · Survey Module CSS
+   适配 ZY 传讯 CSS 变量体系
+   ═══════════════════════════════════════════════════ */
+
+/* ── 工具栏 ── */
+.survey-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 14px 14px 0;
+    flex-shrink: 0;
+}
+
+.survey-pill-btn {
+    height: 38px;
+    padding: 0 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-family);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.survey-pill-btn:active {
+    transform: scale(0.96);
+    background: var(--border-color);
+}
+.survey-pill-btn.danger {
+    color: #e05555;
+    border-color: rgba(224, 85, 85, 0.25);
+}
+.survey-pill-btn.danger:active {
+    background: rgba(224, 85, 85, 0.08);
+}
+.survey-pill-btn.primary {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+}
+
+/* ── 卡片网格 ── */
+.survey-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px;
+}
+.survey-card {
+    position: relative;
+    overflow: hidden;
+    background: var(--primary-bg);
+    border-radius: 18px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.survey-card:active {
+    transform: scale(0.97);
+}
+.survey-card::before {
+    content: "";
+    position: absolute;
+    top: -30px;
+    right: -30px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.08);
+    opacity: 0.6;
+}
+.survey-card-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--accent-color);
+    position: relative;
+    z-index: 1;
+}
+.survey-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    color: var(--text-primary);
+}
+.survey-card-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── 空状态 ── */
+.survey-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 40px 20px;
+    line-height: 2;
+    letter-spacing: 0.5px;
+}
+
+/* ── 邀请通知浮卡 ── */
+.survey-invite-popup {
+    position: absolute;
+    top: 16px;
+    left: 14px;
+    right: 14px;
+    z-index: 850;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--secondary-bg);
+    border: 1px solid rgba(var(--accent-color-rgb, 0, 0, 0), 0.15);
+    border-radius: 18px;
+    padding: 13px 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-160%);
+    opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+    pointer-events: none;
+}
+.survey-invite-popup.on {
+    transform: translateY(0);
+    opacity: 1;
+}
+.sip-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.1);
+    color: var(--accent-color);
+}
+.survey-invite-popup.accept .sip-icon {
+    background: rgba(74, 140, 116, 0.14);
+    color: #4a8c74;
+}
+.survey-invite-popup.decline .sip-icon {
+    background: rgba(224, 85, 85, 0.1);
+    color: #e05555;
+}
+.sip-body {
+    flex: 1;
+    min-width: 0;
+}
+.sip-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+}
+.sip-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 详情子页面 ── */
+.survey-detail-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+}
+.survey-detail-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.survey-detail-actions .survey-pill-btn {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-size: 12px;
+    height: 40px;
+}
+.survey-records-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+.survey-record-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: color 0.15s;
+}
+.survey-record-item:active {
+    color: var(--text-primary);
+}
+.survey-record-item:last-child {
+    border-bottom: none;
+}
+.survey-record-arrow {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+/* ── 编辑表单 ── */
+.qedit-item {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--primary-bg);
+}
+.qedit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.qedit-row-label {
+    font-size: 12px;
+    color: var(--accent-color);
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+.qedit-del {
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    background: none;
+    border: none;
+    font-family: var(--font-family);
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+.qedit-del:active {
+    color: #e05555;
+    background: rgba(224, 85, 85, 0.08);
+}
+.qedit-field {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-family);
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.qedit-field:focus {
+    border-color: var(--accent-color);
+}
+.qedit-field-area {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-family);
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.qedit-toggles {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.qedit-chip-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    background: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, border-color 0.15s;
+    color: var(--text-secondary);
+}
+.qedit-chip-check:has(input:checked) {
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.1);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+.qedit-chip-check input {
+    display: none;
+}
+.qedit-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.qedit-opt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.qedit-opt-row .qedit-field {
+    flex: 1;
+    padding: 9px 12px;
+}
+.qedit-opt-del {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    background: var(--primary-bg);
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, color 0.15s;
+}
+.qedit-opt-del:active {
+    background: rgba(224, 85, 85, 0.1);
+    color: #e05555;
+}
+.qedit-add-opt {
+    align-self: flex-start;
+    font-size: 12px;
+    color: var(--accent-color);
+    background: none;
+    border: none;
+    padding: 4px 2px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    font-family: var(--font-family);
+}
+
+/* ═══════════════════════════════════════════════════
+   问卷填写 · 全屏视图
+   ═══════════════════════════════════════════════════ */
+.survey-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999999;
+    background: var(--primary-bg);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.survey-fullscreen.on {
+    transform: translateY(0);
+}
+.sf-header {
+    height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 0 4px;
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+.sf-back {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 12px;
+    font-family: var(--font-family);
+    letter-spacing: 0.5px;
+}
+.sf-title {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+.sf-progress {
+    font-size: 11px;
+    color: var(--accent-color);
+    letter-spacing: 1px;
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.1);
+    border-radius: 20px;
+    padding: 5px 12px;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+.sf-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px 18px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: sfStepIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sf-body::-webkit-scrollbar {
+    display: none;
+}
+@keyframes sfStepIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 题目 & 选项 ── */
+.qf-question {
+    font-size: 17px;
+    line-height: 1.8;
+    font-weight: 600;
+    padding: 4px 2px 6px;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+}
+.qf-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.qf-opt {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+    background: var(--secondary-bg);
+    transition: border-color 0.18s, background 0.18s, transform 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    color: var(--text-primary);
+    font-family: var(--font-family);
+}
+.qf-opt:active {
+    transform: scale(0.985);
+}
+.qf-opt.selected {
+    border-color: var(--accent-color);
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.08);
+    font-weight: 600;
+    color: var(--accent-color);
+}
+
+/* ── 对方选择区域 ── */
+.qf-opp {
+    margin-top: 2px;
+    background: var(--primary-bg);
+    border-radius: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    animation: sfStepIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qf-opp.dim {
+    opacity: 0.5;
+}
+.qf-opp-label,
+.qf-comment-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.qf-opp-value {
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ── 操作按钮组 ── */
+.qf-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 2px;
+}
+.qf-actions .survey-pill-btn {
+    flex: 1;
+    height: 44px;
+    text-align: center;
+}
+
+/* ── 等待指示器 ── */
+.qf-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(var(--accent-color-rgb, 0, 0, 0), 0.1);
+    color: var(--accent-color);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    animation: sfStepIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qf-dots {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.qf-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    animation: qfBounce 1.2s infinite ease-in-out both;
+}
+.qf-dots i:nth-child(2) {
+    animation-delay: 0.15s;
+}
+.qf-dots i:nth-child(3) {
+    animation-delay: 0.3s;
+}
+@keyframes qfBounce {
+    0%, 80%, 100% { transform: scale(0.5); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+.qf-check {
+    flex-shrink: 0;
+}
+
+/* ── 评论区域 ── */
+.qf-comment {
+    background: var(--primary-bg);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-top: 2px;
+    border: 1px solid var(--border-color);
+    animation: sfStepIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qf-comment-text {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+
+/* ── 总结页 ── */
+.qf-summary {
+    display: flex;
+    flex-direction: column;
+}
+.qf-sum-item {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.qf-sum-item:last-of-type {
+    border-bottom: none;
+    padding-bottom: 18px;
+}
+.qf-sum-q {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+}
+.qf-sum-row {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.9;
+}
+.qf-match-bar {
+    margin: 8px 0 4px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-color);
+    overflow: hidden;
+}
+.qf-match-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent-color);
+    transition: width 0.5s ease;
+}
+.qf-match-text {
+    font-size: 12px;
+    color: var(--accent-color);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+/* ── 匹配结果动画 ── */
+@keyframes sfSummaryIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.qf-summary .qf-sum-item {
+    animation: sfSummaryIn 0.3s ease both;
+}
+.qf-summary .qf-sum-item:nth-child(1) { animation-delay: 0.05s; }
+.qf-summary .qf-sum-item:nth-child(2) { animation-delay: 0.1s; }
+.qf-summary .qf-sum-item:nth-child(3) { animation-delay: 0.15s; }
+.qf-summary .qf-sum-item:nth-child(4) { animation-delay: 0.2s; }
+.qf-summary .qf-sum-item:nth-child(5) { animation-delay: 0.25s; }
+
+/* ── 记录详情 ── */
+.survey-record-detail {
+    padding: 4px 0;
+}
+.survey-record-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
