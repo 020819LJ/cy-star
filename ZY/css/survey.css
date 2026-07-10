@@ -518,6 +518,36 @@
     text-align: center;
 }
 
+/* ── 重选 / 下一步 按钮 ── */
+.sf-reselect-btn,
+.sf-next-btn {
+    height: 42px;
+    padding: 0 28px;
+    border: 1px solid var(--border-color);
+    border-radius: 21px;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: var(--font-family);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.sf-reselect-btn:active,
+.sf-next-btn:active {
+    transform: scale(0.96);
+    background: var(--border-color);
+}
+.sf-next-btn {
+    background: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+}
+.sf-next-btn:active {
+    opacity: 0.85;
+}
+
 /* ── 等待指示器 ── */
 .qf-indicator {
     display: flex;
