@@ -183,7 +183,6 @@
     var div = document.createElement('div');
     div.className = 'survey-fullscreen';
     div.id = 'surveyFullScreen';
-    div.style.display = 'none';
     div.innerHTML =
       '<div class="sf-header">' +
         '<button class="sf-back" onclick="SurveyApp.closeFull()">\u2190 \u8fd4\u56de</button>' +
@@ -738,10 +737,9 @@
 
     var fs = document.getElementById('surveyFullScreen');
     if (!fs) return;
-    fs.style.display = 'block';
     document.getElementById('sfFullTitle').textContent = s.title;
     requestAnimationFrame(function () {
-      fs.classList.add('sf-visible');
+      fs.classList.add('on');
     });
     renderFillQuestion();
   }
@@ -751,11 +749,10 @@
     surveyFill = null;
     var fs = document.getElementById('surveyFullScreen');
     if (!fs) return;
-    fs.classList.remove('sf-visible');
+    fs.classList.remove('on');
     setTimeout(function () {
-      fs.style.display = 'none';
       document.getElementById('sfFullBody').innerHTML = '';
-    }, 350);
+    }, 450);
   }
 
   function clearFillTimers() {
