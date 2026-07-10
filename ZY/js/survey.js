@@ -165,7 +165,7 @@
             '<button class="survey-pill-btn" onclick="document.getElementById(\'surveyImportInput\').click()">\u5bfc\u5165</button>' +
             '<input type="file" id="surveyImportInput" accept=".json" style="display:none" onchange="SurveyApp.handleImport(event)">' +
           '</div>' +
-          '<div id="surveyDeck" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;"></div>' +
+          '<div id="surveyDeck" class="survey-grid"></div>' +
           '<div class="survey-invite-popup" id="surveyInvitePopup">' +
             '<div class="sip-icon" id="sipIcon"></div>' +
             '<div class="sip-body">' +
@@ -269,7 +269,9 @@
   function _removeAndHide(btn) {
     var modal = btn.closest('.modal');
     if (modal) {
-      // Instant hide + remove (no hideModal to avoid header restore when main modal is open)
+      // 清理可能残留的 hideModal 超时
+      if (modal._hideTimeout) { clearTimeout(modal._hideTimeout); modal._hideTimeout = null; }
+      // Instant hide + remove（不调用 hideModal，避免恢复 header 状态）
       modal.style.display = 'none';
       modal.style.zIndex = '';
       modal.remove();
@@ -463,7 +465,7 @@
       var optCheck = document.getElementById('seq_opt_' + qi);
       if (optCheck) editState.questions[qi].needOptions = optCheck.checked;
       var cmtCheck = document.getElementById('seq_cmt_' + qi);
-      if (cmtCheck) editState.questions[qi].needComment = cmt.checked;
+      if (cmtCheck) editState.questions[qi].needComment = cmtCheck.checked;
       if (editState.questions[qi].needOptions) {
         var opts = editState.questions[qi].options;
         var newOpts = [];
@@ -701,7 +703,12 @@
         setTimeout(function () {
           popup.classList.remove('on');
           // Close main modal before opening full-screen fill
-          hideModal(mainModal);
+          if (mainModal) {
+            // 清理 mainModal 上可能的 _hideTimeout，避免冲突
+            if (mainModal._hideTimeout) { clearTimeout(mainModal._hideTimeout); mainModal._hideTimeout = null; }
+            mainModal.style.display = 'none';
+            mainModal.style.zIndex = '';
+          }
           setTimeout(function () { startSurveyFill(id); }, 300);
         }, 1400);
       } else {
@@ -795,10 +802,10 @@
     var sf = surveyFill;
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
-      var selected = sf.selfIdx === i ? 'sf-opt-selected' : '';
+      var selected = sf.selfIdx === i ? 'selected' : '';
       var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
       optionsHtml +=
-        '<div class="sf-option ' + selected + '" onclick="SurveyApp.pickOption(' + i + ')">' +
+        '<div class="qf-opt ' + selected + '" onclick="SurveyApp.pickOption(' + i + ')">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
           oppMark +
         '</div>';
@@ -811,7 +818,7 @@
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
-      '<div class="sf-options">' + optionsHtml + '</div>' +
+      '<div class="qf-options">' + optionsHtml + '</div>' +
       '<div style="margin-top:16px;text-align:center;display:flex;gap:10px;justify-content:center;">' + reselectHtml + nextHtml + '</div>';
   }
 
@@ -924,7 +931,7 @@
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
       var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
       optionsHtml +=
-        '<div class="sf-option' + (sf.selfIdx === i ? ' sf-opt-selected' : '') + '">' +
+        '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
           selfMark + oppMark +
         '</div>';
@@ -932,7 +939,7 @@
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
-      '<div class="sf-options">' + optionsHtml + '</div>' +
+      '<div class="qf-options">' + optionsHtml + '</div>' +
       '<div style="text-align:center;margin-top:16px;">' +
         '<button class="survey-pill-btn" onclick="SurveyApp.proceedAfterReselect()">\u7ee7\u7eed</button>' +
       '</div>';
@@ -943,24 +950,24 @@
     var sf = surveyFill;
     var q = sf.survey.questions[sf.qIndex];
 
-    sf.answers.push(sf.curAnswer);
-    sf.qIndex++;
-    sf.selfIdx = -1;
-    sf.oppIdx = -1;
-    sf.curAnswer = null;
-
     if (q.needComment) {
+      // 需要评论：不push答案，保持 curAnswer 引用，等 submitComment 统一 push
       sf.stage = 'comment-wait';
       renderFillQuestion();
       var commentDelay = randInt(3000, 10000);
       var ctid = setTimeout(function () {
-        sf.curAnswer = sf.answers[sf.answers.length - 1] || {};
         sf.curAnswer.oppComment = generateOppComment();
         sf.stage = 'comment';
         renderFillQuestion();
       }, commentDelay);
       fillTimers.push(ctid);
     } else {
+      // 无需评论：push 答案并推进
+      sf.answers.push(sf.curAnswer);
+      sf.qIndex++;
+      sf.selfIdx = -1;
+      sf.oppIdx = -1;
+      sf.curAnswer = null;
       if (sf.qIndex >= sf.survey.questions.length) {
         sf.stage = 'summary';
       } else {
@@ -977,7 +984,7 @@
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
       var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
       optionsHtml +=
-        '<div class="sf-option' + (sf.selfIdx === i ? ' sf-opt-selected' : '') + '">' +
+        '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
           selfMark + oppMark +
         '</div>';
@@ -985,7 +992,7 @@
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
-      '<div class="sf-options">' + optionsHtml + '</div>' +
+      '<div class="qf-options">' + optionsHtml + '</div>' +
       '<div style="text-align:center;padding:24px 0;color:var(--text-secondary);font-size:14px;">' +
         '<i class="fas fa-keyboard" style="font-size:20px;margin-bottom:8px;display:block;animation:pulse 1.5s infinite;"></i>' +
         '\u5bf9\u65b9\u6b63\u5728\u8f93\u5165\u8bc4\u8bba\u2026' +
@@ -999,7 +1006,7 @@
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
       var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
       optionsHtml +=
-        '<div class="sf-option' + (sf.selfIdx === i ? ' sf-opt-selected' : '') + '">' +
+        '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
           selfMark + oppMark +
         '</div>';
@@ -1007,7 +1014,7 @@
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
-      '<div class="sf-options">' + optionsHtml + '</div>' +
+      '<div class="qf-options">' + optionsHtml + '</div>' +
       '<div style="margin-top:16px;">' +
         '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">\u5f7c\u7684\u8bc4\u8bba\uff1a</div>' +
         '<div style="background:var(--secondary-bg);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;color:var(--text-primary);margin-bottom:12px;">' + escapeHtml(sf.curAnswer.oppComment || '') + '</div>' +
@@ -1130,6 +1137,7 @@
     _closeEdit: _closeEdit,
     _removeAndHide: _removeAndHide,
     closeFull: closeFull,
+    startSurveyFill: startSurveyFill,
     pickOption: pickOption,
     proceedFromPick: proceedFromPick,
     requestReselect: requestReselect,
