@@ -806,11 +806,13 @@
 
     var reselectHtml = (sf.selfIdx >= 0 && sf.oppIdx >= 0) ?
       '<button class="sf-reselect-btn" onclick="SurveyApp.requestReselect()">\u91cd\u9009</button>' : '';
+    var nextHtml = (sf.selfIdx >= 0 && sf.oppIdx >= 0) ?
+      '<button class="sf-next-btn" onclick="SurveyApp.proceedFromPick()">\u4e0b\u4e00\u6b65</button>' : '';
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
       '<div class="sf-options">' + optionsHtml + '</div>' +
-      '<div style="margin-top:16px;text-align:center;">' + reselectHtml + '</div>';
+      '<div style="margin-top:16px;text-align:center;display:flex;gap:10px;justify-content:center;">' + reselectHtml + nextHtml + '</div>';
   }
 
   function pickOption(idx) {
@@ -830,9 +832,15 @@
       oppComment: ''
     };
 
+    // Re-render to show opponent answer + reselect + next buttons
     renderFillQuestion();
+  }
 
-    // Proceed to comment-wait or next question
+  function proceedFromPick() {
+    if (!surveyFill || surveyFill.stage !== 'pick' || !surveyFill.curAnswer) return;
+    var sf = surveyFill;
+    var q = sf.survey.questions[sf.qIndex];
+
     if (q.needComment) {
       var tid = setTimeout(function () {
         sf.stage = 'comment-wait';
@@ -1123,6 +1131,7 @@
     _removeAndHide: _removeAndHide,
     closeFull: closeFull,
     pickOption: pickOption,
+    proceedFromPick: proceedFromPick,
     requestReselect: requestReselect,
     proceedAfterReselect: proceedAfterReselect,
     submitComment: submitComment,
