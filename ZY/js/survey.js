@@ -814,6 +814,16 @@
       var tid = setTimeout(function () {
         if (!surveyFill || surveyFill.qIndex !== sf.qIndex) return;
         sf.oppIdx = randInt(0, q.options.length - 1);
+        // If user already picked, create curAnswer now
+        if (sf.selfIdx >= 0 && !sf.curAnswer) {
+          sf.curAnswer = {
+            q: q.text,
+            self: q.options[sf.selfIdx],
+            opp: q.options[sf.oppIdx],
+            selfComment: '',
+            oppComment: ''
+          };
+        }
         renderFillQuestion();
       }, pickDelay);
       fillTimers.push(tid);
@@ -821,8 +831,11 @@
 
     var reselectHtml = (sf.selfIdx >= 0 && sf.oppIdx >= 0) ?
       '<button class="sf-reselect-btn" onclick="SurveyApp.requestReselect()">\u91cd\u9009</button>' : '';
-    var nextHtml = (sf.selfIdx >= 0 && sf.oppIdx >= 0) ?
-      '<button class="sf-next-btn" onclick="SurveyApp.proceedFromPick()">\u4e0b\u4e00\u6b65</button>' : '';
+    var waitingOpp = sf.selfIdx >= 0 && sf.oppIdx < 0;
+    var nextHtml = sf.selfIdx >= 0 ?
+      '<button class="sf-next-btn" style="' + (waitingOpp ? 'opacity:0.5;pointer-events:none;' : '') + '" onclick="SurveyApp.proceedFromPick()">' +
+        (waitingOpp ? '\u7b49\u5f85\u68a6\u89d2\u9009\u62e9\u2026' : '\u4e0b\u4e00\u6b65') +
+      '</button>' : '';
 
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
@@ -836,20 +849,19 @@
     var q = sf.survey.questions[sf.qIndex];
 
     sf.selfIdx = idx;
-    // If opponent hasn't chosen yet, pick now
-    if (sf.oppIdx < 0) {
-      sf.oppIdx = randInt(0, q.options.length - 1);
+
+    // If opponent already chose, create curAnswer now; otherwise wait for opponent
+    if (sf.oppIdx >= 0) {
+      sf.curAnswer = {
+        q: q.text,
+        self: q.options[sf.selfIdx],
+        opp: q.options[sf.oppIdx],
+        selfComment: '',
+        oppComment: ''
+      };
     }
 
-    sf.curAnswer = {
-      q: q.text,
-      self: q.options[sf.selfIdx],
-      opp: q.options[sf.oppIdx],
-      selfComment: '',
-      oppComment: ''
-    };
-
-    // Re-render to show opponent answer + reselect + next buttons
+    // Re-render to show selection + buttons
     renderFillQuestion();
   }
 
