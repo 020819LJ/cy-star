@@ -59,7 +59,7 @@
   }
 
   function generateOppComment() {
-    var count = randInt(1, 3);
+    var count = randInt(1, 5);
     var parts = [];
     for (var i = 0; i < count; i++) {
       parts.push(getRandomCard());
@@ -1012,9 +1012,6 @@
         '</div>';
     }
 
-    var selfCard = sf.curAnswer.selfComment || getRandomCard();
-    sf.curAnswer.selfComment = selfCard;
-
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
       '<div class="qf-options">' + optionsHtml + '</div>' +
@@ -1022,25 +1019,21 @@
         '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + escapeHtml(pn) + '\u7684\u8bc4\u8bba\uff1a</div>' +
         '<div style="background:var(--secondary-bg);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;color:var(--text-primary);margin-bottom:12px;">' + escapeHtml(sf.curAnswer.oppComment || '') + '</div>' +
         '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">\u6211\u7684\u8bc4\u8bba\uff1a</div>' +
-        '<div id="sfCommentDisplay" style="background:var(--secondary-bg);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;color:var(--text-primary);margin-bottom:8px;min-height:36px;">' + escapeHtml(selfCard) + '</div>' +
-        '<div style="display:flex;gap:8px;">' +
-          '<button class="survey-pill-btn" style="flex:1;background:var(--border-color);color:var(--text-primary);" onclick="SurveyApp.refreshSelfCard()">\u6362\u4e00\u6761</button>' +
-          '<button class="survey-pill-btn" style="flex:1;background:var(--accent-color);color:#fff;" onclick="SurveyApp.submitComment()">\u4e0b\u4e00\u9898</button>' +
-        '</div>' +
+        '<textarea id="sfCommentInput" placeholder="\u5199\u70b9\u4ec0\u4e48\u2026" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--secondary-bg);color:var(--text-primary);font-size:13px;resize:none;min-height:60px;box-sizing:border-box;font-family:var(--font-family);"></textarea>' +
+        '<button class="survey-pill-btn" style="width:100%;margin-top:8px;background:var(--accent-color);color:#fff;" onclick="SurveyApp.submitComment()">\u4e0b\u4e00\u9898</button>' +
       '</div>';
-  }
 
-  function refreshSelfCard() {
-    if (!surveyFill || !surveyFill.curAnswer) return;
-    surveyFill.curAnswer.selfComment = getRandomCard();
-    var el = document.getElementById('sfCommentDisplay');
-    if (el) el.textContent = surveyFill.curAnswer.selfComment;
+    requestAnimationFrame(function () {
+      var inp = document.getElementById('sfCommentInput');
+      if (inp) inp.focus();
+    });
   }
 
   function submitComment() {
     if (!surveyFill) return;
     var sf = surveyFill;
-    // selfComment already set by renderCommentStage / refreshSelfCard
+    var inp = document.getElementById('sfCommentInput');
+    if (inp) sf.curAnswer.selfComment = inp.value.trim();
     sf.answers.push(sf.curAnswer);
     sf.qIndex++;
     sf.selfIdx = -1;
@@ -1150,7 +1143,6 @@
     proceedFromPick: proceedFromPick,
     requestReselect: requestReselect,
     proceedAfterReselect: proceedAfterReselect,
-    refreshSelfCard: refreshSelfCard,
     submitComment: submitComment,
     finishAndSave: finishAndSave
   };
