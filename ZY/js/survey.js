@@ -797,10 +797,6 @@
   function renderPickStage(q, body) {
     var sf = surveyFill;
     var pn = getPartnerName();
-    // Generate opponent choice immediately if not yet chosen
-    if (sf.oppIdx < 0) {
-      sf.oppIdx = randInt(0, q.options.length - 1);
-    }
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selected = sf.selfIdx === i ? 'selected' : '';
@@ -810,6 +806,17 @@
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
           oppMark +
         '</div>';
+    }
+
+    // Schedule opponent choice if not yet chosen
+    if (sf.oppIdx < 0) {
+      var pickDelay = randInt(5000, 20000);
+      var tid = setTimeout(function () {
+        if (!surveyFill || surveyFill.qIndex !== sf.qIndex) return;
+        sf.oppIdx = randInt(0, q.options.length - 1);
+        renderFillQuestion();
+      }, pickDelay);
+      fillTimers.push(tid);
     }
 
     var reselectHtml = (sf.selfIdx >= 0 && sf.oppIdx >= 0) ?
@@ -829,7 +836,10 @@
     var q = sf.survey.questions[sf.qIndex];
 
     sf.selfIdx = idx;
-    // oppIdx already set in renderPickStage
+    // If opponent hasn't chosen yet, pick now
+    if (sf.oppIdx < 0) {
+      sf.oppIdx = randInt(0, q.options.length - 1);
+    }
 
     sf.curAnswer = {
       q: q.text,
