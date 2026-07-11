@@ -810,7 +810,7 @@
 
     // Schedule opponent choice if not yet chosen
     if (sf.oppIdx < 0) {
-      var pickDelay = randInt(5000, 20000);
+      var pickDelay = randInt(8000, 40000);
       var tid = setTimeout(function () {
         if (!surveyFill || surveyFill.qIndex !== sf.qIndex) return;
         sf.oppIdx = randInt(0, q.options.length - 1);
