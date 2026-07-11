@@ -40,36 +40,31 @@
 
   // ==================== Comment Pool ====================
 
-  var COMMENT_POOL = [
-    '想你了', '每天都在想你呢', '你是我的全世界', '好喜欢你呀',
-    '在一起的每一天都很开心', '永远喜欢你', '想牵着你的手',
-    '你最珍贵', '遇到你真好', '爱你哟', '你是我的小确幸',
-    '每天都想见到你', '你笑起来真好看', '想抱抱你',
-    '和你在一起的时光最美好', '我的心里只有你', '你是最好的',
-    '好想和你在一起', '你是我最想留住的幸运', '看见你就开心'
-  ];
-
   var COMMENT_SEPS = ['\uff0c', '\u3002', '\uff01', '\u2026', '\uff5e'];
 
+  function getPartnerName() {
+    try { return window.settings ? (window.settings.partnerName || '梦角') : '梦角'; } catch(e) { return '梦角'; }
+  }
+
+  function getRandomCard() {
+    var cards = (window._customReplies && window._customReplies.length > 0)
+      ? window._customReplies.map(function(r){ return String(r||'').trim(); }).filter(Boolean)
+      : null;
+    if (cards && cards.length > 0) {
+      return cards[Math.floor(Math.random() * cards.length)];
+    }
+    // Fallback if no cards
+    var fallback = ['想你了','好喜欢你呀','你是最棒的','每天都想见到你','遇见你真好'];
+    return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
   function generateOppComment() {
-    var count = randInt(2, 4);
-    var picked = [];
-    for (var i = 0; i < count; i++) {
-      var idx = Math.floor(Math.random() * COMMENT_POOL.length);
-      if (picked.indexOf(COMMENT_POOL[idx]) === -1) {
-        picked.push(COMMENT_POOL[idx]);
-      } else {
-        i--;
-      }
-    }
+    var count = randInt(1, 3);
     var parts = [];
-    for (var j = 0; j < picked.length; j++) {
-      parts.push(picked[j]);
-      if (j < picked.length - 1) {
-        parts.push(COMMENT_SEPS[Math.floor(Math.random() * COMMENT_SEPS.length)]);
-      }
+    for (var i = 0; i < count; i++) {
+      parts.push(getRandomCard());
     }
-    return parts.join('');
+    return parts.join(COMMENT_SEPS[Math.floor(Math.random() * COMMENT_SEPS.length)]);
   }
 
   // ==================== Built-in Surveys ====================
@@ -283,6 +278,7 @@
   function openRecordSummary(id) {
     var r = surveyRecords.find(function (rec) { return rec.id === id; });
     if (!r) return;
+    var pn = getPartnerName();
 
     var rows = '';
     for (var i = 0; i < r.answers.length; i++) {
@@ -292,14 +288,14 @@
         commentHtml += '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">\u6211\uff1a' + escapeHtml(a.selfComment) + '</div>';
       }
       if (a.oppComment) {
-        commentHtml += '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">\u5f7c\uff1a' + escapeHtml(a.oppComment) + '</div>';
+        commentHtml += '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">' + escapeHtml(pn) + '\uff1a' + escapeHtml(a.oppComment) + '</div>';
       }
       rows +=
         '<div style="padding:10px 0;border-bottom:1px solid var(--border-color);">' +
           '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">' + escapeHtml(a.q) + '</div>' +
           '<div style="display:flex;gap:12px;font-size:13px;">' +
             '<span>\u6211\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.self || '-') + '</span></span>' +
-            '<span>\u5f7c\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.opp || '-') + '</span></span>' +
+            '<span>' + escapeHtml(pn) + '\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.opp || '-') + '</span></span>' +
           '</div>' +
           commentHtml +
         '</div>';
@@ -800,10 +796,11 @@
 
   function renderPickStage(q, body) {
     var sf = surveyFill;
+    var pn = getPartnerName();
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selected = sf.selfIdx === i ? 'selected' : '';
-      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
+      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">' + escapeHtml(pn) + '</span>' : '';
       optionsHtml +=
         '<div class="qf-opt ' + selected + '" onclick="SurveyApp.pickOption(' + i + ')">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
@@ -926,10 +923,11 @@
 
   function renderReselectDoneStage(q, body) {
     var sf = surveyFill;
+    var pn = getPartnerName();
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
-      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
+      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">' + escapeHtml(pn) + '</span>' : '';
       optionsHtml +=
         '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
@@ -979,10 +977,11 @@
 
   function renderCommentWaitStage(q, body) {
     var sf = surveyFill;
+    var pn = getPartnerName();
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
-      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
+      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">' + escapeHtml(pn) + '</span>' : '';
       optionsHtml +=
         '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
@@ -1001,10 +1000,11 @@
 
   function renderCommentStage(q, body) {
     var sf = surveyFill;
+    var pn = getPartnerName();
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selfMark = sf.selfIdx === i ? '<span class="sf-self-mark">\u6211</span>' : '';
-      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">\u5f7c</span>' : '';
+      var oppMark = sf.oppIdx === i ? '<span class="sf-opp-mark">' + escapeHtml(pn) + '</span>' : '';
       optionsHtml +=
         '<div class="qf-opt' + (sf.selfIdx === i ? ' selected' : '') + '">' +
           '<span>' + escapeHtml(q.options[i]) + '</span>' +
@@ -1012,28 +1012,35 @@
         '</div>';
     }
 
+    var selfCard = sf.curAnswer.selfComment || getRandomCard();
+    sf.curAnswer.selfComment = selfCard;
+
     body.innerHTML =
       '<div class="sf-question" style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:16px;text-align:center;">' + escapeHtml(q.text) + '</div>' +
       '<div class="qf-options">' + optionsHtml + '</div>' +
       '<div style="margin-top:16px;">' +
-        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">\u5f7c\u7684\u8bc4\u8bba\uff1a</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + escapeHtml(pn) + '\u7684\u8bc4\u8bba\uff1a</div>' +
         '<div style="background:var(--secondary-bg);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;color:var(--text-primary);margin-bottom:12px;">' + escapeHtml(sf.curAnswer.oppComment || '') + '</div>' +
         '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">\u6211\u7684\u8bc4\u8bba\uff1a</div>' +
-        '<textarea id="sfCommentInput" placeholder="\u5199\u70b9\u4ec0\u4e48\u2026" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--secondary-bg);color:var(--text-primary);font-size:13px;resize:none;min-height:60px;box-sizing:border-box;font-family:var(--font-family);"></textarea>' +
-        '<button class="survey-pill-btn" style="width:100%;margin-top:8px;background:var(--accent-color);color:#fff;" onclick="SurveyApp.submitComment()">\u4e0b\u4e00\u9898</button>' +
+        '<div id="sfCommentDisplay" style="background:var(--secondary-bg);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;color:var(--text-primary);margin-bottom:8px;min-height:36px;">' + escapeHtml(selfCard) + '</div>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button class="survey-pill-btn" style="flex:1;background:var(--border-color);color:var(--text-primary);" onclick="SurveyApp.refreshSelfCard()">\u6362\u4e00\u6761</button>' +
+          '<button class="survey-pill-btn" style="flex:1;background:var(--accent-color);color:#fff;" onclick="SurveyApp.submitComment()">\u4e0b\u4e00\u9898</button>' +
+        '</div>' +
       '</div>';
+  }
 
-    requestAnimationFrame(function () {
-      var inp = document.getElementById('sfCommentInput');
-      if (inp) inp.focus();
-    });
+  function refreshSelfCard() {
+    if (!surveyFill || !surveyFill.curAnswer) return;
+    surveyFill.curAnswer.selfComment = getRandomCard();
+    var el = document.getElementById('sfCommentDisplay');
+    if (el) el.textContent = surveyFill.curAnswer.selfComment;
   }
 
   function submitComment() {
     if (!surveyFill) return;
     var sf = surveyFill;
-    var inp = document.getElementById('sfCommentInput');
-    if (inp) sf.curAnswer.selfComment = inp.value.trim();
+    // selfComment already set by renderCommentStage / refreshSelfCard
     sf.answers.push(sf.curAnswer);
     sf.qIndex++;
     sf.selfIdx = -1;
@@ -1050,6 +1057,7 @@
 
   function renderSummaryStage(body) {
     var sf = surveyFill;
+    var pn = getPartnerName();
     var rows = '';
     for (var i = 0; i < sf.answers.length; i++) {
       var a = sf.answers[i];
@@ -1057,7 +1065,7 @@
       var commentHtml = '';
       if (a.selfComment || a.oppComment) {
         commentHtml = '<div style="margin-top:4px;font-size:12px;color:var(--text-secondary);">';
-        if (a.oppComment) commentHtml += '\u5f7c\uff1a' + escapeHtml(a.oppComment) + ' ';
+        if (a.oppComment) commentHtml += escapeHtml(pn) + '\uff1a' + escapeHtml(a.oppComment) + ' ';
         if (a.selfComment) commentHtml += '\u6211\uff1a' + escapeHtml(a.selfComment);
         commentHtml += '</div>';
       }
@@ -1066,7 +1074,7 @@
           '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">' + escapeHtml(a.q) + '</div>' +
           '<div style="display:flex;gap:12px;font-size:13px;align-items:center;">' +
             '<span>\u6211\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.self || '-') + '</span></span>' +
-            '<span>\u5f7c\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.opp || '-') + '</span></span>' +
+            '<span>' + escapeHtml(pn) + '\uff1a<span style="color:var(--accent-color);">' + escapeHtml(a.opp || '-') + '</span></span>' +
             (match ? '<span style="color:#27ae60;font-size:12px;"><i class="fas fa-check"></i> \u4e00\u81f4</span>' : '<span style="color:#e74c3c;font-size:12px;"><i class="fas fa-times"></i> \u4e0d\u4e00\u81f4</span>') +
           '</div>' +
           commentHtml +
@@ -1142,6 +1150,7 @@
     proceedFromPick: proceedFromPick,
     requestReselect: requestReselect,
     proceedAfterReselect: proceedAfterReselect,
+    refreshSelfCard: refreshSelfCard,
     submitComment: submitComment,
     finishAndSave: finishAndSave
   };
