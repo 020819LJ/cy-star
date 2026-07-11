@@ -797,6 +797,10 @@
   function renderPickStage(q, body) {
     var sf = surveyFill;
     var pn = getPartnerName();
+    // Generate opponent choice immediately if not yet chosen
+    if (sf.oppIdx < 0) {
+      sf.oppIdx = randInt(0, q.options.length - 1);
+    }
     var optionsHtml = '';
     for (var i = 0; i < q.options.length; i++) {
       var selected = sf.selfIdx === i ? 'selected' : '';
@@ -825,8 +829,7 @@
     var q = sf.survey.questions[sf.qIndex];
 
     sf.selfIdx = idx;
-    // Generate opponent answer immediately
-    sf.oppIdx = randInt(0, q.options.length - 1);
+    // oppIdx already set in renderPickStage
 
     sf.curAnswer = {
       q: q.text,
