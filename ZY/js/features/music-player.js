@@ -2431,10 +2431,10 @@
     global.MusicPlayerApp = MusicPlayer;
 
     // ======================== ★★★ [新增] cy-music云端曲库 ★★★ ========================
-    // 固定远程曲库接口：https://cylz.github.io/cy-music/index.json
+    // 固定远程曲库接口：https://fcylz.github.io/cy-music/index.json
     // 接口返回每条歌曲字段：name、mp3（完整公网mp3链接）、lrc（完整公网lrc链接）
     // 所有音频、歌词、JSON接口全部使用给定线上地址
-    var CLOUD_INDEX_URL = 'https://cylz.github.io/cy-music/index.json';
+    var CLOUD_INDEX_URL = 'https://fcylz.github.io/cy-music/index.json';
     var cloudCache = null;         // 缓存的云端歌曲列表
     var cloudLoaded = false;       // 是否已成功加载云端索引
     var cloudLoading = false;      // 是否正在请求中
@@ -2698,4 +2698,5 @@
 
     // 由 listeners.js 中的 setupEventListeners() 统一调用 init()
 })(typeof window !== 'undefined' ? window : this);
+
 
